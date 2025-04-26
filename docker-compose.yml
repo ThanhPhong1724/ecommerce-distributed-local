@@ -1,0 +1,91 @@
+# ecommerce-distributed-local/docker-compose.yml
+version: '3.8' # Phiên bản Docker Compose
+
+services:
+  # --- Cơ sở hạ tầng ---
+
+  postgres_db:
+    image: postgres:14-alpine # Sử dụng image Postgres gọn nhẹ
+    container_name: postgres_db_container
+    environment:
+      POSTGRES_USER: ${DB_USER:-admin} # Sử dụng biến môi trường, nếu ko có thì dùng admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-ecommerce_db}
+    ports:
+      - "${DB_PORT:-5432}:5432" # Map cổng từ máy host vào container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Lưu dữ liệu Postgres ra ngoài container
+    networks:
+      - ecommerce_network # Kết nối vào mạng chung
+
+  redis_cache:
+    image: redis:6-alpine
+    container_name: redis_cache_container
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecommerce_network
+
+  rabbitmq_queue:
+    image: rabbitmq:3.9-management-alpine # Có giao diện quản lý
+    container_name: rabbitmq_queue_container
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"      # Cổng giao tiếp AMQP
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672" # Cổng giao diện web quản lý
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+    networks:
+      - ecommerce_network
+
+  # --- Các Microservices sẽ thêm vào đây sau ---
+  # user_service:
+  #   ...
+  # --- Các Microservices ---
+  user_service:
+    build: ./services/user-service # Chỉ đường dẫn tới thư mục chứa Dockerfile
+    container_name: user_service_container
+    ports:
+      - "3001:3001" # Map port 3001 của máy host vào port 3001 của container
+    environment:
+      # Database connection - Các biến này sẽ được NestJS đọc qua @nestjs/config
+      DATABASE_HOST: postgres_db # !! Quan trọng: Dùng tên service của DB trong Docker Compose
+      DATABASE_PORT: 5432        # Port bên trong mạng Docker của DB
+      DATABASE_USER: ${DB_USER:-admin}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-password}
+      DATABASE_NAME: ${DB_NAME:-ecommerce_db}
+      # JWT secrets
+      JWT_SECRET: ${JWT_SECRET:-YourDefaultSecretKey} # Nên đặt trong .env
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600s}
+      # RabbitMQ connection
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq_queue:5672
+      # Port service chạy
+      PORT: 3001
+    volumes:
+      # Mount code để hot-reload khi dev (tùy chọn, cần setup thêm nodemon trong container)
+      # - ./services/user-service:/usr/src/app
+      # - /usr/src/app/node_modules # Tránh ghi đè node_modules từ máy host
+      - ./services/user-service/src:/usr/src/app/src # Mount src code vào để xem lỗi dễ hơn khi dev
+    networks:
+      - ecommerce_network
+    depends_on: # Đảm bảo DB và RabbitMQ khởi chạy trước user-service
+      - postgres_db
+      - rabbitmq_queue
+
+  # product_service:
+  #   ...
+
+# Định nghĩa Volumes để lưu dữ liệu persistent
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+# Định nghĩa mạng chung cho các container giao tiếp
+networks:
+  ecommerce_network:
+    driver: bridge # Kiểu mạng mặc định, đủ dùng cho local
