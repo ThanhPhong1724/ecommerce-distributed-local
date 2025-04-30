@@ -1,22 +1,29 @@
 # ecommerce-distributed-local/docker-compose.yml
-version: '3.8' # Phiên bản Docker Compose
+# version: '3.8' # Xóa dòng này vì không còn cần thiết
 
 services:
   # --- Cơ sở hạ tầng ---
 
   postgres_db:
-    image: postgres:14-alpine # Sử dụng image Postgres gọn nhẹ
+    image: postgres:14-alpine
     container_name: postgres_db_container
     environment:
-      POSTGRES_USER: ${DB_USER:-admin} # Sử dụng biến môi trường, nếu ko có thì dùng admin
+      POSTGRES_USER: ${DB_USER:-admin}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
       POSTGRES_DB: ${DB_NAME:-ecommerce_db}
     ports:
-      - "${DB_PORT:-5432}:5432" # Map cổng từ máy host vào container
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Lưu dữ liệu Postgres ra ngoài container
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - ecommerce_network # Kết nối vào mạng chung
+      - ecommerce_network
+    # Thêm healthcheck cho DB (chờ DB sẵn sàng nhận lệnh)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-ecommerce_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis_cache:
     image: redis:6-alpine
@@ -27,57 +34,198 @@ services:
       - redis_data:/data
     networks:
       - ecommerce_network
+    # Thêm healthcheck cho Redis (kiểm tra ping)
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   rabbitmq_queue:
-    image: rabbitmq:3.9-management-alpine # Có giao diện quản lý
+    image: rabbitmq:3.13-management-alpine
     container_name: rabbitmq_queue_container
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"      # Cổng giao tiếp AMQP
-      - "${RABBITMQ_MGMT_PORT:-15672}:15672" # Cổng giao diện web quản lý
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-rabbit_user} # Sử dụng user từ .env
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-rabbit_pass} # Sử dụng pass từ .env
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq/
     networks:
       - ecommerce_network
+    # Thêm healthcheck cho RabbitMQ
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s # Tăng interval một chút cho RabbitMQ
+      timeout: 10s
+      retries: 5
+      start_period: 20s # Tăng start_period cho RabbitMQ
 
-  # --- Các Microservices sẽ thêm vào đây sau ---
-  # user_service:
-  #   ...
-  # --- Các Microservices ---
+  # --- Microservices ---
   user_service:
-    build: ./services/user-service # Chỉ đường dẫn tới thư mục chứa Dockerfile
+    build: ./services/user-service
     container_name: user_service_container
     ports:
-      - "3001:3001" # Map port 3001 của máy host vào port 3001 của container
+      - "3001:3001"
     environment:
-      # Database connection - Các biến này sẽ được NestJS đọc qua @nestjs/config
-      DATABASE_HOST: postgres_db # !! Quan trọng: Dùng tên service của DB trong Docker Compose
-      DATABASE_PORT: 5432        # Port bên trong mạng Docker của DB
+      DATABASE_HOST: postgres_db
+      DATABASE_PORT: 5432
       DATABASE_USER: ${DB_USER:-admin}
       DATABASE_PASSWORD: ${DB_PASSWORD:-password}
       DATABASE_NAME: ${DB_NAME:-ecommerce_db}
-      # JWT secrets
-      JWT_SECRET: ${JWT_SECRET:-YourDefaultSecretKey} # Nên đặt trong .env
+      JWT_SECRET: ${JWT_SECRET:-YourDefaultSecretKey}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-3600s}
-      # RabbitMQ connection
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq_queue:5672
-      # Port service chạy
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-rabbit_user}:${RABBITMQ_PASS:-rabbit_pass}@rabbitmq_queue:5672 # <<< Sử dụng user/pass từ env
       PORT: 3001
-    volumes:
-      # Mount code để hot-reload khi dev (tùy chọn, cần setup thêm nodemon trong container)
-      # - ./services/user-service:/usr/src/app
-      # - /usr/src/app/node_modules # Tránh ghi đè node_modules từ máy host
-      - ./services/user-service/src:/usr/src/app/src # Mount src code vào để xem lỗi dễ hơn khi dev
+    # Bỏ volume mount src khi không cần debug nóng nữa để tránh ghi đè node_modules
+    # volumes:
+    #   - ./services/user-service/src:/usr/src/app/src
     networks:
       - ecommerce_network
-    depends_on: # Đảm bảo DB và RabbitMQ khởi chạy trước user-service
-      - postgres_db
-      - rabbitmq_queue
+    depends_on:
+      postgres_db:
+        condition: service_healthy # <<< Chờ DB healthy
+      rabbitmq_queue:
+        condition: service_healthy # <<< Chờ RabbitMQ healthy
 
-  # product_service:
-  #   ...
+  product_service:
+    build: ./services/product-service
+    container_name: product_service_container
+    ports:
+      - "3002:3002"
+    environment:
+      DATABASE_HOST: postgres_db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USER:-admin}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-password}
+      DATABASE_NAME: ${DB_NAME:-ecommerce_db}
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      CACHE_TTL: ${CACHE_TTL:-60}
+      PORT: 3002
+    networks:
+      - ecommerce_network
+    depends_on:
+      postgres_db:
+        condition: service_healthy # <<< Chờ DB healthy
+      redis_cache:
+        condition: service_healthy # <<< Chờ Redis healthy
+
+  cart_service:
+    build: ./services/cart-service
+    container_name: cart_service_container
+    ports:
+      - "3003:3003"
+    environment:
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      PORT: 3003
+    networks:
+      - ecommerce_network
+    depends_on:
+      redis_cache:
+        condition: service_healthy # <<< Chờ Redis healthy
+
+  order_service:
+    build: ./services/order-service
+    container_name: order_service_container
+    ports:
+      - "3004:3004"
+    environment:
+      DATABASE_HOST: postgres_db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USER:-admin}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-password}
+      DATABASE_NAME: ${DB_NAME:-ecommerce_db}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-rabbit_user}:${RABBITMQ_PASS:-rabbit_pass}@rabbitmq_queue:5672 # <<< Sử dụng user/pass từ env
+      RABBITMQ_USER: ${RABBITMQ_USER:-rabbit_user} # <<< Thêm để ClientProxy đọc nếu cần
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-rabbit_pass} # <<< Thêm để ClientProxy đọc nếu cần
+      CART_SERVICE_URL: ${CART_SERVICE_URL:-http://cart_service:3003} # Tên service dùng gạch dưới
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:-http://product_service:3002} # Tên service dùng gạch dưới
+      PORT: 3004
+    networks:
+      - ecommerce_network
+    depends_on:
+      postgres_db:
+        condition: service_healthy # <<< Chờ DB healthy
+      rabbitmq_queue:
+        condition: service_healthy # <<< Chờ RabbitMQ healthy
+      cart_service: # Tên service phải khớp (dùng gạch dưới)
+        # Thêm healthcheck cho cart_service nếu muốn chờ nó sẵn sàng hoàn toàn
+        # condition: service_healthy
+        condition: service_started # Tạm thời chỉ cần start
+      product_service: # Tên service phải khớp (dùng gạch dưới)
+        # Thêm healthcheck cho product_service nếu muốn chờ nó sẵn sàng hoàn toàn
+        # condition: service_healthy
+        condition: service_started # Tạm thời chỉ cần start
+
+  notification_service:
+    build: ./services/notification-service
+    container_name: notification_service_container
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-rabbit_user}:${RABBITMQ_PASS:-rabbit_pass}@rabbitmq_queue:5672 # <<< Sử dụng user/pass từ env
+      RABBITMQ_USER: ${RABBITMQ_USER:-rabbit_user}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-rabbit_pass}
+      RABBITMQ_ORDERS_QUEUE: ${RABBITMQ_ORDERS_QUEUE:-orders_notifications_queue}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+      MAIL_FROM: ${MAIL_FROM}
+    networks:
+      - ecommerce_network
+    depends_on:
+      rabbitmq_queue:
+        condition: service_healthy # <<< Chờ RabbitMQ healthy
+
+
+# docker-compose.yml
+# ... (services: postgres_db, redis_cache, rabbitmq_queue, user_service, product_service, cart_service, order_service, notification_service) ...
+  payment_service: # <<< THÊM SERVICE MỚI
+    build: ./services/payment-service
+    container_name: payment_service_container
+    ports:
+      - "3005:3005" # Port mới
+    environment:
+      PORT: 3005
+      # VNPay Config
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE}
+      VNPAY_SECRET_KEY: ${VNPAY_SECRET_KEY}
+      VNPAY_END_POINT: ${VNPAY_END_POINT}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL}
+      VNPAY_IPN_URL: ${VNPAY_IPN_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      # RabbitMQ Config (nếu chưa global)
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    networks:
+      - ecommerce_network
+    depends_on:
+       rabbitmq_queue:
+         condition: service_healthy
+       # Thêm depends_on order_service nếu payment cần gọi check order
+       # order_service:
+       #   condition: service_started
+
+  # Sửa lại API Gateway để route /api/payment
+  api_gateway:
+    build: ./api-gateway
+    container_name: api_gateway_container
+    ports:
+      - "80:80"
+    networks:
+      - ecommerce_network
+    depends_on:
+      - user_service
+      - product_service
+      - cart_service
+      - order_service
+      - payment_service # <<< THÊM payment_service vào depends_on
+      
+# ... (volumes, networks) ...
 
 # Định nghĩa Volumes để lưu dữ liệu persistent
 volumes:
@@ -88,4 +236,4 @@ volumes:
 # Định nghĩa mạng chung cho các container giao tiếp
 networks:
   ecommerce_network:
-    driver: bridge # Kiểu mạng mặc định, đủ dùng cho local
+    driver: bridge
