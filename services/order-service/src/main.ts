@@ -1,3 +1,5 @@
+import 'reflect-metadata'; // <--- Thêm dòng này VÀO ĐẦU TIÊN!
+
 // src/main.ts
 import * as crypto from 'crypto'; // Import module crypto
 
