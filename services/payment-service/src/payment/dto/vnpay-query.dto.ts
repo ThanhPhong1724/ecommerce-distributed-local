@@ -12,5 +12,5 @@ export class VnpayReturnQueryDto {
     vnp_TransactionNo: string; // Mã giao dịch VNPay
     vnp_TransactionStatus: string; // Trạng thái giao dịch (00 = thành công)
     vnp_TxnRef: string; // Mã đơn hàng của bạn (orderId)
-    vnp_SecureHash: string; // Chữ ký kiểm tra
+    vnp_SecureHash?: string; // Chữ ký kiểm tra
 }

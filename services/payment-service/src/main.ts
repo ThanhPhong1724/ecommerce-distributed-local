@@ -1,4 +1,10 @@
 // src/main.ts (của payment-service)
+import 'reflect-metadata';
+import * as crypto from 'crypto';
+
+if (typeof global !== 'undefined' && typeof global.crypto === 'undefined'){
+  (global as any).crypto = crypto;
+}
 
 import { NestFactory } from "@nestjs/core/nest-factory";
 import { AppModule } from "./app.module";
