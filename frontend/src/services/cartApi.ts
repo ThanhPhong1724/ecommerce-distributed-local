@@ -9,35 +9,36 @@ interface CartApiResponse {
 }
 
 // Lấy giỏ hàng
-export const getCart = async (userId: string): Promise<CartApiResponse> => {
+export const getCart = async (): Promise<CartApiResponse> => {
   try {
-    const response = await apiClient.get<CartApiResponse>(`/cart/${userId}`);
+    // Không cần userId nữa vì đã có trong token
+    const response = await apiClient.get<CartApiResponse>('/cart');
     return response.data;
   } catch (error) {
     console.error("Lỗi khi lấy giỏ hàng:", error);
     if (error instanceof Error) {
-      throw error.message; // Ép kiểu và trả về thông báo lỗi
+      throw error;
     }
-    throw error; // Nếu không phải kiểu Error, ném lỗi gốc
+    throw new Error('Lỗi không xác định khi lấy giỏ hàng');
   }
 };
 
 // Thêm item vào giỏ
-export const addItemToCart = async (userId: string, productId: string, quantity: number): Promise<CartApiResponse> => {
+export const addItemToCart = async (productId: string, quantity: number): Promise<CartApiResponse> => {
   try {
-    const response = await apiClient.post<CartApiResponse>(`/cart/items`, { productId, quantity });
+    const response = await apiClient.post<CartApiResponse>('/cart/items', { 
+      productId, 
+      quantity 
+    });
     return response.data;
   } catch (error) {
     console.error("Lỗi khi thêm vào giỏ hàng:", error);
-    if (error instanceof Error) {
-      throw error.message;
-    }
     throw error;
   }
 };
 
 // Cập nhật số lượng
-export const updateCartItemQuantity = async (userId: string, productId: string, quantity: number): Promise<CartApiResponse> => {
+export const updateCartItemQuantity = async (productId: string, quantity: number): Promise<CartApiResponse> => {
   try {
     const response = await apiClient.put<CartApiResponse>(`/cart/items/${productId}`, { quantity });
     return response.data;
@@ -51,7 +52,7 @@ export const updateCartItemQuantity = async (userId: string, productId: string, 
 };
 
 // Xóa item khỏi giỏ
-export const removeItemFromCart = async (userId: string, productId: string): Promise<CartApiResponse> => {
+export const removeItemFromCart = async (productId: string): Promise<CartApiResponse> => {
   try {
     const response = await apiClient.delete<CartApiResponse>(`/cart/items/${productId}`);
     return response.data;
@@ -65,14 +66,11 @@ export const removeItemFromCart = async (userId: string, productId: string): Pro
 };
 
 // Xóa toàn bộ giỏ hàng
-export const clearCartApi = async (userId: string): Promise<void> => {
+export const clearCartApi = async (): Promise<void> => {
   try {
-    await apiClient.delete(`/cart/${userId}`);
+    await apiClient.delete('/cart');
   } catch (error) {
     console.error("Lỗi khi xóa giỏ hàng:", error);
-    if (error instanceof Error) {
-      throw error.message;
-    }
     throw error;
   }
 };

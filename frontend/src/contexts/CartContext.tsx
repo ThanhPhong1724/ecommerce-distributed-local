@@ -93,25 +93,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Hàm gọi API để lấy giỏ hàng
   const fetchCart = useCallback(async () => {
-    if (!authState.isAuthenticated || !authState.user?.id) {
-       console.log("User not authenticated, cannot fetch cart");
-       dispatch({ type: 'LOAD_CART_SUCCESS', payload: [] }); // Reset giỏ hàng nếu ko đăng nhập
-       return;
+    if (!authState.isAuthenticated) {
+      dispatch({ type: 'LOAD_CART_SUCCESS', payload: [] });
+      return;
     }
+    
     dispatch({ type: 'LOAD_CART_START' });
     try {
-      // Truyền userId vào hàm getCart (hoặc để cartApi tự lấy từ token nếu có)
-      const cartData = await getCart(authState.user.id); // <<< Cần userId
+      const cartData = await getCart(); // Không cần truyền userId
       dispatch({ type: 'LOAD_CART_SUCCESS', payload: cartData.items });
     } catch (error: any) {
       dispatch({ type: 'LOAD_CART_FAILURE', payload: error.message || 'Lỗi tải giỏ hàng' });
     }
-  }, [authState.isAuthenticated, authState.user?.id]); // Phụ thuộc vào trạng thái đăng nhập
-
-  // // Load giỏ hàng khi user đăng nhập hoặc component mount lần đầu
-  // useEffect(() => {
-  //   fetchCart();
-  // }, [fetchCart]); // Gọi fetchCart khi nó thay đổi (tức là khi user đăng nhập/đăng xuất)
+  }, [authState.isAuthenticated]);
 
   useEffect(() => {
     if (authState.isAuthenticated) { // <<< Chỉ fetch khi đã đăng nhập
@@ -125,16 +119,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Hàm thêm sản phẩm
   const addToCart = async (productId: string, quantity: number) => {
-     if (!authState.isAuthenticated || !authState.user?.id) throw new Error("Bạn cần đăng nhập để thêm vào giỏ hàng");
-     dispatch({ type: 'ADD_ITEM_START' });
-     try {
-         // Truyền userId vào hàm addItemToCart
-         const updatedCart = await addItemToCart(authState.user.id, productId, quantity); // <<< Cần userId
-         dispatch({ type: 'ADD_ITEM_SUCCESS', payload: updatedCart.items });
-     } catch (error: any) {
-         dispatch({ type: 'ADD_ITEM_FAILURE', payload: error.message || 'Lỗi thêm vào giỏ hàng' });
-         throw error; // Ném lỗi ra để component báo cho user
-     }
+    if (!authState.isAuthenticated) 
+      throw new Error("Bạn cần đăng nhập để thêm vào giỏ hàng");
+    
+    dispatch({ type: 'ADD_ITEM_START' });
+    try {
+      const updatedCart = await addItemToCart(productId, quantity); // Không cần userId
+      dispatch({ type: 'ADD_ITEM_SUCCESS', payload: updatedCart.items });
+    } catch (error: any) {
+      dispatch({ type: 'ADD_ITEM_FAILURE', payload: error.message || 'Lỗi thêm vào giỏ hàng' });
+      throw error;
+    }
   };
 
    // Hàm cập nhật số lượng
@@ -146,7 +141,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     dispatch({ type: 'UPDATE_ITEM_START' });
     try {
-        const updatedCart = await updateCartItemQuantity(authState.user.id, productId, quantity); // <<< Cần userId
+        const updatedCart = await updateCartItemQuantity( productId, quantity); // <<< Cần userId
         dispatch({ type: 'UPDATE_ITEM_SUCCESS', payload: updatedCart.items });
     } catch (error: any) {
         dispatch({ type: 'UPDATE_ITEM_FAILURE', payload: error.message || 'Lỗi cập nhật giỏ hàng' });
@@ -156,27 +151,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Hàm xóa sản phẩm
   const removeFromCart = async (productId: string) => {
-    if (!authState.isAuthenticated || !authState.user?.id) throw new Error("Lỗi xác thực");
+    if (!authState.isAuthenticated) throw new Error("Bạn cần đăng nhập để xóa sản phẩm");
+    
     dispatch({ type: 'REMOVE_ITEM_START' });
     try {
-        const updatedCart = await removeItemFromCart(authState.user.id, productId); // <<< Cần userId
-        dispatch({ type: 'REMOVE_ITEM_SUCCESS', payload: updatedCart.items });
+      const updatedCart = await removeItemFromCart(productId); // Removed userId parameter
+      dispatch({ type: 'REMOVE_ITEM_SUCCESS', payload: updatedCart.items });
     } catch (error: any) {
-        dispatch({ type: 'REMOVE_ITEM_FAILURE', payload: error.message || 'Lỗi xóa sản phẩm' });
-        throw error;
+      dispatch({ type: 'REMOVE_ITEM_FAILURE', payload: error.message || 'Lỗi xóa sản phẩm' });
+      throw error;
     }
   };
 
    // Hàm xóa toàn bộ giỏ hàng
   const clearCart = async () => {
-    if (!authState.isAuthenticated || !authState.user?.id) throw new Error("Lỗi xác thực");
+    if (!authState.isAuthenticated) throw new Error("Bạn cần đăng nhập để xóa giỏ hàng");
+    
     dispatch({ type: 'CLEAR_CART_START' });
     try {
-        await clearCartApi(authState.user.id); // <<< Cần userId
-        dispatch({ type: 'CLEAR_CART_SUCCESS' });
+      await clearCartApi(); // Removed userId parameter
+      dispatch({ type: 'CLEAR_CART_SUCCESS' });
     } catch (error: any) {
-        dispatch({ type: 'CLEAR_CART_FAILURE', payload: error.message || 'Lỗi xóa giỏ hàng' });
-        throw error;
+      dispatch({ type: 'CLEAR_CART_FAILURE', payload: error.message || 'Lỗi xóa giỏ hàng' });
+      throw error;
     }
   };
 
