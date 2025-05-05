@@ -4,11 +4,20 @@ import { CacheInterceptor } from '@nestjs/cache-manager';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './products/dto/create-product.dto';
 import { UpdateProductDto } from './products/dto/update-product.dto';
-
+import { Put, Request, HttpCode, HttpStatus, UseGuards } from '@nestjs/common'; // Thêm HttpCode, HttpStatus
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
+
+  // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
+  @Get('health') // Route sẽ là /cart/health
+  @HttpCode(HttpStatus.OK)
+  checkHealth() {
+    // Không cần logic phức tạp, chỉ cần trả về là service đang chạy
+    return { status: 'ok', service: 'products-service' }; // Thêm tên service cho dễ nhận biết
+  }
+  // --- KẾT THÚC HEALTH CHECK ---
 
   @Post()
   create(@Body(ValidationPipe) createProductDto: CreateProductDto) {

@@ -11,6 +11,15 @@ import { UpdateItemDto } from './cart/dto/update-item.dto';
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
+  // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
+  @Get('health') // Route sẽ là /cart/health
+  @HttpCode(HttpStatus.OK)
+  checkHealth() {
+    // Không cần logic phức tạp, chỉ cần trả về là service đang chạy
+    return { status: 'ok', service: 'cart-service' }; // Thêm tên service cho dễ nhận biết
+  }
+  // --- KẾT THÚC HEALTH CHECK ---
+    
   // --- Helper Function (Giả định để lấy userId) ---
   // Trong thực tế, userId sẽ lấy từ req.user sau khi JWT được xác thực bởi Guard/Gateway
   private getUserIdFromRequest(req: any): string {

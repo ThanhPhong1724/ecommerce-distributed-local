@@ -24,13 +24,6 @@ import { OrderItem } from './entities/order-item.entity';
           transport: Transport.RMQ,
           options: {
             urls: [configService.get<string>('RABBITMQ_URL')!], // Lấy URL từ env
-            queue: 'orders_queue', // Tên queue mặc định (có thể không cần nếu chỉ publish)
-            queueOptions: {
-              durable: true, // Queue tồn tại sau khi restart RabbitMQ
-            },
-            publishOptions: {
-              exchange: 'orders_exchange', // Exchange mặc định khi publish/emit
-            },
           },
         }),
         inject: [ConfigService],

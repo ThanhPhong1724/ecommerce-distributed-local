@@ -10,6 +10,7 @@ RUN npm run build
 
 # Stage 2: Production stage
 FROM node:18-alpine
+RUN apk add --no-cache wget
 WORKDIR /usr/src/app
 
 # Không cần build tools vì ioredis thường không có native deps phức tạp như bcrypt

@@ -12,6 +12,15 @@ import { OrderDto } from './orders/dto/order.dto'; // Import OrderDto
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
+  @Get('health') // Route sẽ là /cart/health
+  @HttpCode(HttpStatus.OK)
+  checkHealth() {
+    // Không cần logic phức tạp, chỉ cần trả về là service đang chạy
+    return { status: 'ok', service: 'orders-service' }; // Thêm tên service cho dễ nhận biết
+  }
+  // --- KẾT THÚC HEALTH CHECK ---
+  
   // --- Helper Function (Giả định để lấy userId) ---
   private getUserIdFromRequest(req: any): string {
       // Tạm thời trả về một userId cố định để test

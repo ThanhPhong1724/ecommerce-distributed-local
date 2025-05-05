@@ -12,10 +12,11 @@ RUN npm run build
 
 # Stage 2: Production stage (Chạy ứng dụng)
 FROM node:18-alpine
+# Trước dòng CMD hoặc ENTRYPOINT
 WORKDIR /usr/src/app
 
 # Cài đặt các build tools cần thiết CHO native addons
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ wget
 
 # Copy CHỈ package.json và package-lock.json từ thư mục gốc dự án
 # Đảm bảo chúng ta có file lock nhất quán từ builder stage (hoặc từ gốc nếu không thay đổi)

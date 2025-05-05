@@ -4,11 +4,23 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './users/dto/create-user.dto';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // Sẽ tạo guard này
 import { Public } from './auth/decorators/public.decorator'; // Decorator đánh dấu public route
+import { Put, HttpCode, HttpStatus } from '@nestjs/common'; // Thêm HttpCode, HttpStatus
 
 @Controller('users') // Route prefix là /users
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // --- THÊM @Public() VÀO ĐÂY ---
+  @Public() // <<< Đánh dấu endpoint này không cần JWT
+  // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
+  @Get('health') // Route sẽ là /cart/health
+  @HttpCode(HttpStatus.OK)
+  checkHealth() {
+    // Không cần logic phức tạp, chỉ cần trả về là service đang chạy
+    return { status: 'ok', service: 'user-service' }; // Thêm tên service cho dễ nhận biết
+  }
+  // --- KẾT THÚC HEALTH CHECK ---
+  
   // Endpoint đăng ký user mới
   @Public() // Đánh dấu endpoint này không cần JWT
   @Post()

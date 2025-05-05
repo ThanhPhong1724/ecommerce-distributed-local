@@ -12,6 +12,15 @@ export class PaymentController {
 
     constructor(private readonly paymentService: PaymentService) {}
 
+      // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
+    @Get('health') // Route sẽ là /cart/health
+    @HttpCode(HttpStatus.OK)
+    checkHealth() {
+        // Không cần logic phức tạp, chỉ cần trả về là service đang chạy
+        return { status: 'ok', service: 'payment-service' }; // Thêm tên service cho dễ nhận biết
+    }
+    // --- KẾT THÚC HEALTH CHECK ---
+
     // Endpoint để Frontend gọi tạo URL thanh toán
     @Post('create_payment_url')
     createPaymentUrl(

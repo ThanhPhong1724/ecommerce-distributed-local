@@ -178,26 +178,43 @@ export class OrdersService {
         this.logger.error(`Không thể gửi yêu cầu xóa giỏ hàng cho user ${userId}: ${error.message}`);
     }
 
-    // --- 5. Publish sự kiện 'order_created' lên RabbitMQ ---
-    try {
-      this.logger.log(`Publish sự kiện order_created vào exchange 'orders_exchange' cho Order ID: ${savedOrder.id}`);
-      const eventName = 'order_created'; // Tên sự kiện/routing key
-      const exchangeName = 'orders_exchange'; // <<< Tên exchange mới
-      this.rabbitClient.emit(
-        // <<< Chỉ định exchange và routing key rõ ràng >>>
-        { exchange: exchangeName, routingKey: eventName },
-        { // Payload giữ nguyên
-          orderId: savedOrder.id,
-          userId: savedOrder.userId,
-          totalAmount: savedOrder.totalAmount,
-          items: savedOrder.items.map(i => ({ productId: i.productId, quantity: i.quantity })),
-        }
-      );
-      // .emit chỉ gửi, không đợi ack, có thể dùng .send nếu cần đợi
+      // --- 5. Publish sự kiện 'order.created' LÊN DEFAULT EXCHANGE ---
+      try {
+      // <<< TÊN QUEUE ĐÍCH MÀ NOTIFICATION SERVICE SẼ LẮNG NGHE >>>
+      // Lấy tên queue từ biến môi trường hoặc dùng giá trị mặc định
+      const targetQueue = this.configService.get<string>('RABBITMQ_NOTIFICATIONS_QUEUE', 'notifications.queue');
+
+      // Chuẩn bị payload (nội dung message)
+      const eventPayload = {
+        orderId: savedOrder.id,
+        userId: savedOrder.userId,
+        totalAmount: savedOrder.totalAmount,
+        // Lấy thông tin items từ savedOrder nếu cần (đảm bảo có sau khi save hoặc query lại)
+        items: savedOrder.items?.map(i => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            price: i.price, // Thêm giá nếu cần
+            name: i.productName // Thêm tên nếu cần
+        })) || [],
+        createdAt: savedOrder.createdAt,
+        shippingAddress: savedOrder.shippingAddress,
+      };
+
+      this.logger.log(`[${userId}] Chuẩn bị emit sự kiện đến queue '${targetQueue}' cho Order ID: ${savedOrder.id}`);
+
+      // <<< Sử dụng tên queue làm pattern/routing key cho emit >>>
+      // ClientProxy sẽ gửi message đến Default Exchange với routing key này
+      this.rabbitClient.emit<string, any>(targetQueue, eventPayload);
+
+      this.logger.log(`[${userId}] Đã emit sự kiện đến Default Exchange với routing key (tên queue) '${targetQueue}' cho Order ID: ${savedOrder.id}`);
+
     } catch (error) {
-       // Log lỗi nhưng không nên fail cả đơn hàng vì bước này
-       this.logger.error(`Lỗi khi publish sự kiện order_created cho order ${savedOrder.id}: ${error.message}`);
+        // Lỗi này thường xảy ra nếu ClientProxy không kết nối được tới RabbitMQ
+        // hoặc có vấn đề khi serialize payload.
+        this.logger.error(`[${userId}] Lỗi khi emit sự kiện order_created cho order ${savedOrder.id}: ${error.message}`, error.stack);
+        // Cân nhắc: Có nên dừng lại hay tiếp tục? Notification thường không critical bằng core logic.
     }
+    // <<< KẾT THÚC ĐOẠN SỬA ĐỔI >>>
 
 
     // Trả về thông tin order đã lưu (có thể kèm items)

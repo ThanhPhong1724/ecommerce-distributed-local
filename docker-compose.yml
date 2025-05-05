@@ -89,6 +89,12 @@ services:
         condition: service_healthy # <<< Chờ DB healthy
       rabbitmq_queue:
         condition: service_healthy # <<< Chờ RabbitMQ healthy
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3001/users/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   product_service:
     build: ./services/product-service
@@ -112,6 +118,13 @@ services:
         condition: service_healthy # <<< Chờ DB healthy
       redis_cache:
         condition: service_healthy # <<< Chờ Redis healthy
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3002/products/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 
   cart_service:
     build: ./services/cart-service
@@ -127,6 +140,12 @@ services:
     depends_on:
       redis_cache:
         condition: service_healthy # <<< Chờ Redis healthy
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/cart/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   order_service:
     build: ./services/order-service
@@ -160,6 +179,12 @@ services:
         # Thêm healthcheck cho product_service nếu muốn chờ nó sẵn sàng hoàn toàn
         # condition: service_healthy
         condition: service_started # Tạm thời chỉ cần start
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3004/orders/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s # Cho service này thời gian khởi động lâu hơn
 
   notification_service:
     build: ./services/notification-service
@@ -179,7 +204,12 @@ services:
     depends_on:
       rabbitmq_queue:
         condition: service_healthy # <<< Chờ RabbitMQ healthy
-
+    healthcheck: # <<< Thêm nếu có endpoint /health
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3006/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 # docker-compose.yml
 # ... (services: postgres_db, redis_cache, rabbitmq_queue, user_service, product_service, cart_service, order_service, notification_service) ...
@@ -209,7 +239,13 @@ services:
        # Thêm depends_on order_service nếu payment cần gọi check order
        # order_service:
        #   condition: service_started
-
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3005/payment/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      
   # Sửa lại API Gateway để route /api/payment
   api_gateway:
     build: ./api-gateway
@@ -218,22 +254,93 @@ services:
       - "80:80"
     networks:
       - ecommerce_network
-    depends_on:
-      - user_service
-      - product_service
-      - cart_service
-      - order_service
-      - payment_service # <<< THÊM payment_service vào depends_on
+    depends_on: # <<< Đợi TẤT CẢ backend services healthy
+      user_service: { condition: service_healthy }
+      product_service: { condition: service_healthy }
+      cart_service: { condition: service_healthy }
+      order_service: { condition: service_healthy }
+      payment_service: { condition: service_healthy }
+      # notification_service: { condition: service_healthy } # Nếu có healthcheck
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t"] # Kiểm tra cú pháp Nginx config
+      interval: 30s
+      timeout: 3s
+      retries: 3
       
 # ... (volumes, networks) ...
+# ecommerce-distributed-local/docker-compose.yml
+# ... (các services hiện có: postgres_db, redis_cache, ..., api_gateway) ...
 
+  # --- Logging Stack ---
+  # --- Logging Stack ---
+  loki:
+    image: grafana/loki:2.9.0 # Hoặc phiên bản mới hơn, ví dụ 3.0.0
+    container_name: loki_service
+    ports:
+      - "3100:3100" # Port để Grafana và Promtail kết nối
+    command: -config.file=/etc/loki/local-config.yaml
+    # volumes: # Có thể mount config file nếu muốn tùy chỉnh Loki sâu hơn
+    #   - ./loki-config.yml:/etc/loki/local-config.yaml
+    networks:
+      - ecommerce_network
+    # Không cần healthcheck phức tạp cho Loki ở mức demo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  promtail:
+    image: grafana/promtail:2.9.0 # Phiên bản tương ứng với Loki
+    container_name: promtail_service
+    volumes:
+      # QUAN TRỌNG: Mount Docker socket để Promtail đọc log từ các container khác
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount file config của Promtail
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - ecommerce_network
+    depends_on:
+      loki:
+        condition: service_healthy # Chờ Loki sẵn sàng
+
+  grafana:
+    image: grafana/grafana:latest # Luôn lấy phiên bản mới nhất
+    container_name: grafana_service
+    ports:
+      - "3000:3000" # Port truy cập Grafana UI
+    volumes:
+      - grafana_data:/var/lib/grafana # Lưu trữ dashboards, datasources...
+    environment:
+      # Cho phép truy cập ẩn danh để tiện demo, BỎ KHI DEPLOY THỰC TẾ
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      # (Tùy chọn) Tự động cấu hình Loki datasource
+      - GF_DATASOURCES_DEFAULT_NAME=Loki
+      - GF_DATASOURCES_0_NAME=Loki
+      - GF_DATASOURCES_0_TYPE=loki
+      - GF_DATASOURCES_0_URL=http://loki:3100 # Địa chỉ nội bộ của Loki
+      - GF_DATASOURCES_0_ACCESS=proxy
+      - GF_DATASOURCES_0_IS_DEFAULT=true
+    networks:
+      - ecommerce_network
+    depends_on:
+      loki:
+        condition: service_healthy # Chờ Loki sẵn sàng
+
+# --- Volumes & Networks ---
 # Định nghĩa Volumes để lưu dữ liệu persistent
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  grafana_data: # <<< ĐÃ THÊM volume cho Grafana
 
 # Định nghĩa mạng chung cho các container giao tiếp
 networks:
   ecommerce_network:
     driver: bridge
+
+

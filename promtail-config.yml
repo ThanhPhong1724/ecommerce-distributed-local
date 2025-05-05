@@ -1,0 +1,56 @@
+# promtail-config.yml
+server:
+  http_listen_port: 9080 # Port nội bộ của Promtail (không cần expose)
+  grpc_listen_port: 0     # Tắt gRPC
+
+positions:
+  filename: /tmp/positions.yaml # File để Promtail lưu vị trí đã đọc log
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push # Địa chỉ Loki service trong Docker network
+
+scrape_configs:
+  - job_name: docker # Đặt tên job là docker
+    docker_sd_configs: # Sử dụng Docker Service Discovery
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        # Chỉ lấy log từ các container thuộc cùng project Docker Compose này
+        # Điều này hữu ích nếu bạn chạy nhiều project khác trên Docker
+        filters:
+          - name: label # Lọc theo label của container
+            values: ["com.docker.compose.project=ecommerce-distributed-local"] # <<< Thay 'ecommerce-distributed-local' bằng tên project của bạn nếu khác
+    relabel_configs:
+      # Giữ lại các label mặc định từ docker_sd_configs hữu ích
+      # như __meta_docker_container_name, __meta_docker_container_id
+
+      # Tạo label 'job' từ tên job_name
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_job_name']
+        target_label: 'job'
+
+      # Tạo label 'service' từ tên service trong Docker Compose
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'service'
+
+      # Tạo label 'container_name' từ tên container, bỏ dấu '/' ở đầu
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container_name'
+
+      # (Tùy chọn) Lấy tên image làm label
+      # - source_labels: ['__meta_docker_container_image']
+      #   target_label: 'image_name'
+
+      # Map tên container vào label 'instance' (thường dùng trong Prom)
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'instance'
+
+      # Bỏ các label không cần thiết để tránh tốn tài nguyên Loki
+      # - action: labelmap
+      #   regex: __meta_docker_container_label_(.+)
+      # - action: labeldrop
+      #   regex: ^(host)$
+
+      # Đảm bảo giữ lại các label quan trọng
+      # - action: keepequal
+      #   source_labels: ['job', 'service', 'container_name', 'instance'] # Các label muốn giữ
