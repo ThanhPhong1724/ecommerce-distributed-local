@@ -28,8 +28,11 @@ export class ProductsService {
   }
 
   async findAll(): Promise<Product[]> {
-    console.log('Fetching products from DB...'); // Log để biết khi nào đọc từ DB
-    return this.productRepository.find({ relations: ['category'] }); // Lấy cả thông tin category
+    console.log('Fetching products from DB...');
+    return this.productRepository.find({
+      relations: ['category'], // Lấy cả thông tin category
+      select: ['id', 'name', 'description', 'price', 'stockQuantity', 'img', 'createdAt', 'updatedAt'], // Chỉ định các trường cần lấy
+    });
   }
 
   async findOne(id: string): Promise<Product> {
@@ -38,22 +41,20 @@ export class ProductsService {
 
     if (cachedProduct) {
       console.log(`Fetching product ${id} from CACHE`);
-      // Cần parse lại vì Redis lưu dạng string, các kiểu dữ liệu có thể bị mất
-      // Hoặc đảm bảo lưu/lấy đúng kiểu ngay từ đầu
       return cachedProduct;
     }
 
     console.log(`Fetching product ${id} from DB`);
     const product = await this.productRepository.findOne({
-         where: { id },
-         relations: ['category'] // Lấy cả thông tin category
+      where: { id },
+      relations: ['category'], // Lấy cả thông tin category
+      select: ['id', 'name', 'description', 'price', 'stockQuantity', 'img', 'createdAt', 'updatedAt'], // Chỉ định các trường cần lấy
     });
     if (!product) {
       throw new NotFoundException(`Product với ID ${id} không tìm thấy`);
     }
 
-    // Lưu vào cache trước khi trả về, ví dụ cache 5 phút (300s)
-    await this.cacheManager.set(cacheKey, product, 300);
+    await this.cacheManager.set(cacheKey, product, 300); // Cache 5 phút
     return product;
   }
 

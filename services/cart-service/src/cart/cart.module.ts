@@ -2,14 +2,20 @@
 import { Module } from '@nestjs/common';
 import { CartController } from '../cart.controller';
 import { CartService } from '../cart.service';
-// Không cần TypeOrmModule ở đây vì dùng Redis
+import { HttpModule } from '@nestjs/axios';
+import { ConfigModule } from '@nestjs/config';
+import { AuthGuard } from './guards/auth.guard';
 
 @Module({
   imports: [
-    // Không cần TypeOrmModule
+    HttpModule,
+    ConfigModule,
   ],
   controllers: [CartController],
-  providers: [CartService],
-  exports: [CartService] // Export nếu service khác cần dùng (vd: OrderService)
+  providers: [
+    CartService,
+    AuthGuard,
+  ],
+  exports: [CartService]
 })
 export class CartModule {}

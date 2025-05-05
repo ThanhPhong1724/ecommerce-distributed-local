@@ -19,6 +19,9 @@ export class Product {
   @Column({ type: 'int', default: 0 }) // Số lượng tồn kho, mặc định là 0
   stockQuantity: number;
 
+  @Column({ nullable: true }) // Thêm trường img, có thể null
+  img: string;
+
   // Nhiều Product thuộc về một Category
   @ManyToOne(() => Category, (category) => category.products, {
      nullable: false, // Sản phẩm phải thuộc về một category

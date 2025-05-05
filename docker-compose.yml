@@ -132,6 +132,9 @@ services:
     ports:
       - "3003:3003"
     environment:
+      NODE_ENV: development
+      # Lấy giá trị từ file .env và đặt làm biến môi trường cho container
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
       REDIS_HOST: redis_cache
       REDIS_PORT: 6379
       PORT: 3003
@@ -174,11 +177,11 @@ services:
       cart_service: # Tên service phải khớp (dùng gạch dưới)
         # Thêm healthcheck cho cart_service nếu muốn chờ nó sẵn sàng hoàn toàn
         # condition: service_healthy
-        condition: service_started # Tạm thời chỉ cần start
+        condition: service_healthy # Tạm thời chỉ cần start
       product_service: # Tên service phải khớp (dùng gạch dưới)
         # Thêm healthcheck cho product_service nếu muốn chờ nó sẵn sàng hoàn toàn
         # condition: service_healthy
-        condition: service_started # Tạm thời chỉ cần start
+        condition: service_healthy # Tạm thời chỉ cần start
     healthcheck: # <<< THÊM HEALTHCHECK
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3004/orders/health || exit 1"]
       interval: 15s
