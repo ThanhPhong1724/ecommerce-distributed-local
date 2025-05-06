@@ -1,5 +1,6 @@
 // src/services/orderApi.ts
 import apiClient from './apiClient';
+import axios from 'axios';
 
 // Interface cho dữ liệu gửi đi khi tạo order
 interface CreateOrderPayload {
@@ -66,3 +67,38 @@ export const createOrder = async (payload: CreateOrderPayload): Promise<OrderRes
 };
 
 // Thêm các hàm gọi API khác cho order (getOrders, getOrderById...) sau
+// Định nghĩa kiểu dữ liệu cho một item trong đơn hàng
+export interface OrderItem {
+  id: string;
+  productId: string;
+  quantity: number;
+  price: string; // Giữ dạng string như API trả về, sẽ format sau
+  productName: string;
+  orderId: string;
+}
+
+// Định nghĩa kiểu dữ liệu cho chi tiết đơn hàng
+export interface OrderDetail {
+  id: string;
+  userId: string;
+  status: string; // 'pending', 'processing', 'completed', 'failed', etc.
+  totalAmount: string; // Giữ dạng string, sẽ format sau
+  items: OrderItem[];
+  shippingAddress: string;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+}
+
+export const getOrderDetails = async (orderId: string): Promise<OrderDetail> => {
+  try {
+    const response = await apiClient.get<OrderDetail>(`/orders/${orderId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching order details for orderId ${orderId}:`, error);
+    // Ném lỗi để component có thể bắt và xử lý
+    if (axios.isAxiosError(error) && error.response && error.response.data) {
+      throw error.response.data;
+    }
+    throw error;
+  }
+};

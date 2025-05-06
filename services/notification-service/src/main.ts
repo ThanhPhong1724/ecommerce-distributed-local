@@ -1,4 +1,14 @@
 // src/main.ts (của notification-service)
+import * as crypto from 'crypto'; // Import module crypto
+
+// !!! THÊM ĐOẠN NÀY: Gán vào global scope một cách tường minh
+// Kiểm tra để tránh lỗi nếu global.crypto đã tồn tại
+if (typeof global !== 'undefined' && typeof global.crypto === 'undefined') {
+  (global as any).crypto = crypto;
+}
+// Hoặc cách đơn giản hơn (nhưng kém an toàn hơn nếu global.crypto đã có):
+// (global as any).crypto = crypto;
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';

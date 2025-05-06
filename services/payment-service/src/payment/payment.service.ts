@@ -287,8 +287,12 @@ async handleVnpayIPN(query: VnpayIpnQueryDto): Promise<{ RspCode: string; Messag
     };
 
     try {
-      this.logger.log(`[handleVnpayIPN] Publishing 'payment_processed' event for Order ID ${orderId}: ${JSON.stringify(eventPayload)}`);
-      this.rabbitClient.emit('payment_processed', eventPayload);
+      // this.logger.log(`[handleVnpayIPN] Publishing 'payment_processed' event for Order ID ${orderId}: ${JSON.stringify(eventPayload)}`);
+      // this.rabbitClient.emit('payment_processed', eventPayload);
+      const ordersServiceQueueName = 'orders_queue'; // Lấy từ config hoặc hardcode nếu cố định
+      this.logger.log(`[handleVnpayIPN] Emitting event to queue '${ordersServiceQueueName}' for Order ID ${orderId}`);
+      this.rabbitClient.emit<string, any>(ordersServiceQueueName, eventPayload);
+
       // Không cần await nếu đây là thông báo và không cần chờ kết quả
     } catch (rabbitError) {
       this.logger.error(`[handleVnpayIPN] Error publishing 'payment_processed' event for Order ${orderId}: ${rabbitError.message}`, rabbitError.stack);
