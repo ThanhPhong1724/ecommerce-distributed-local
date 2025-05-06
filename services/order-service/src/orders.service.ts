@@ -37,44 +37,58 @@ export class OrdersService {
   // Hàm helper để gọi API service khác
   private async callService<T>(url: string, config: any = {}): Promise<T> {
     try {
+      this.logger.debug('Calling service:', url);
+      this.logger.debug('Request config:', {
+        ...config,
+        headers: {
+          ...config.headers,
+          Authorization: config.headers?.Authorization ? 
+            `${config.headers.Authorization.substring(0, 20)}...` : 
+            'No token'
+        }
+      });
+
       const response = await firstValueFrom(
         this.httpService.get<T>(url, config).pipe(
           catchError((error) => {
-            this.logger.error(`Lỗi khi gọi ${url}: ${error.response?.status} ${error.response?.data?.message || error.message}`);
-            if (error.response?.status === HttpStatus.NOT_FOUND) {
-              throw new NotFoundException(error.response?.data?.message || `Không tìm thấy tài nguyên tại ${url}`);
-            }
-            throw new HttpException(error.response?.data?.message || 'Lỗi giao tiếp với service khác', error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR);
+            this.logger.error(`Service call failed:`, {
+              url,
+              status: error.response?.status,
+              message: error.response?.data?.message || error.message,
+              headers: error.response?.headers
+            });
+            throw error;
           }),
         ),
       );
+
       return response.data;
     } catch (error) {
-       // Đảm bảo throw lại lỗi để transaction có thể rollback
-       if (error instanceof HttpException) throw error;
-       throw new InternalServerErrorException(`Lỗi không xác định khi gọi ${url}: ${error.message}`);
+      // Đảm bảo throw lại lỗi để transaction có thể rollback
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(`Lỗi không xác định khi gọi ${url}: ${error.message}`);
     }
   }
 
-
-  async createOrder(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
+  async createOrder(userId: string, createOrderDto: CreateOrderDto, userToken: string): Promise<Order> {
     this.logger.log(`Bắt đầu tạo đơn hàng cho user: ${userId}`);
 
     // --- 1. Lấy giỏ hàng từ cart-service ---
-    // Cần truyền userId hoặc token để cart-service biết lấy giỏ hàng của ai
-    // Tạm thời giả định cart-service có endpoint /cart/:userId
     let cart: CartInterface;
     try {
-        // !!! Quan trọng: Cần cơ chế xác thực/truyền userId an toàn ở đây khi có Gateway
-        cart = await this.callService<Cart>(`${this.cartServiceUrl}/cart/${userId}`); // Giả sử endpoint là /cart/:userId
-    } catch (error) {
-        this.logger.error(`Không thể lấy giỏ hàng cho user ${userId}: ${error.message}`);
-        if (error instanceof NotFoundException) {
-            throw new BadRequestException('Giỏ hàng không tồn tại hoặc không thể truy cập.');
+      this.logger.debug('Token being sent to cart service:', userToken);
+      cart = await this.callService<CartInterface>(`${this.cartServiceUrl}/cart`, {
+        headers: {
+          Authorization: `Bearer ${userToken}` // Sử dụng token của user thay vì JWT_SECRET
         }
-        throw error; // Throw lại các lỗi khác (500, etc.)
+      });
+    } catch (error) {
+      this.logger.error(`Không thể lấy giỏ hàng cho user ${userId}: ${error.message}`);
+      if (error instanceof NotFoundException) {
+        throw new BadRequestException('Giỏ hàng không tồn tại hoặc không thể truy cập.');
+      }
+      throw error;
     }
-
 
     if (!cart || cart.items.length === 0) {
       throw new BadRequestException('Giỏ hàng trống, không thể tạo đơn hàng.');

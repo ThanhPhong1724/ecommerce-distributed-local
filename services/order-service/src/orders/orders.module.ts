@@ -4,10 +4,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios'; // Import HttpModule
 import { ClientsModule, Transport } from '@nestjs/microservices'; // Import cho RabbitMQ client
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { OrdersController } from './../orders.controller';
 import { OrdersService } from './../orders.service';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { AuthGuard } from './../guards/auth.guard';
 
 @Module({
   imports: [
@@ -29,9 +31,21 @@ import { OrderItem } from './entities/order-item.entity';
         inject: [ConfigService],
       },
     ]),
+
+    // Cấu hình JwtModule
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn: '1h',
+        },
+      }),
+      inject: [ConfigService],
+    }),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, AuthGuard],
   exports: [OrdersService],
 })
 export class OrdersModule {}

@@ -1,55 +1,83 @@
 // src/contexts/AuthContext.tsx
-import React, { createContext, useReducer, useContext, useEffect } from 'react';
+import React, { createContext, useReducer, useContext, useEffect, useCallback } from 'react';
 
-// 1. Định nghĩa kiểu dữ liệu cho trạng thái Auth
-interface AuthState {
-  isAuthenticated: boolean;
-  user: { id: string; email: string } | null; // Lưu thông tin user cơ bản
-  token: string | null;
+// Thêm interface User
+interface User {
+  id: string;
+  email: string;
+  // Thêm các trường khác nếu cần
 }
 
-// 2. Định nghĩa các hành động (Actions) có thể thay đổi trạng thái
-type AuthAction =
-  | { type: 'LOGIN_SUCCESS'; payload: { token: string; user: { id: string; email: string } } }
-  | { type: 'LOGOUT' }
-  | { type: 'LOAD_USER_FROM_STORAGE'; payload: { token: string; user: { id: string; email: string } } }; // Để load lại khi refresh
+// Cập nhật AuthState
+interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
+  loading: boolean; // Thêm loading state
+}
 
-// 3. Trạng thái khởi tạo ban đầu
+// Cập nhật initialState
 const initialState: AuthState = {
   isAuthenticated: false,
   user: null,
   token: null,
+  loading: true // Bắt đầu với loading = true
 };
 
-// 4. Reducer: Hàm xử lý các action và cập nhật state
-// (Giống như cách bạn xử lý state trong Redux)
+// Thêm action mới
+type AuthAction =
+  | { type: 'LOGIN_SUCCESS'; payload: { token: string; user: User } }
+  | { type: 'LOGOUT' }
+  | { type: 'LOAD_USER_FROM_STORAGE'; payload: { token: string; user: User } }
+  | { type: 'AUTH_ERROR' }; // Thêm action mới
+
+// Cập nhật reducer
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
   switch (action.type) {
     case 'LOGIN_SUCCESS':
-      localStorage.setItem('accessToken', action.payload.token); // Lưu token vào localStorage
+      localStorage.setItem('accessToken', action.payload.token);
       localStorage.setItem('userInfo', JSON.stringify(action.payload.user));
+      
+      // Kiểm tra và xử lý redirect sau login
+      const redirectPath = localStorage.getItem('redirectPath');
+      if (redirectPath) {
+        localStorage.removeItem('redirectPath');
+        window.location.href = redirectPath;
+      }
+      
       return {
         ...state,
         isAuthenticated: true,
         token: action.payload.token,
         user: action.payload.user,
+        loading: false
       };
+
     case 'LOGOUT':
-      localStorage.removeItem('accessToken'); // Xóa token khỏi localStorage
+    case 'AUTH_ERROR':
+      // Lưu path hiện tại trước khi logout
+      if (window.location.pathname !== '/login') {
+        localStorage.setItem('redirectPath', window.location.pathname);
+      }
+      localStorage.removeItem('accessToken');
       localStorage.removeItem('userInfo');
       return {
         ...state,
         isAuthenticated: false,
         token: null,
         user: null,
+        loading: false
       };
+
     case 'LOAD_USER_FROM_STORAGE':
-       return {
-            ...state,
-            isAuthenticated: true,
-            token: action.payload.token,
-            user: action.payload.user,
-       };
+      return {
+        ...state,
+        isAuthenticated: true,
+        token: action.payload.token,
+        user: action.payload.user,
+        loading: false
+      };
+
     default:
       return state;
   }
@@ -66,27 +94,35 @@ const AuthContext = createContext<AuthContextProps>({
   dispatch: () => null, // Hàm dispatch mặc định không làm gì cả
 });
 
-// 6. Tạo Provider Component: Component này sẽ bao bọc App
-// và cung cấp Context cho các component con
+// Thêm một số helper functions trong AuthProvider
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Load user từ localStorage khi component mount lần đầu
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    const userInfo = localStorage.getItem('userInfo');
-    if (token && userInfo) {
-      try {
+  const loadUser = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const userInfo = localStorage.getItem('userInfo');
+      
+      if (token && userInfo) {
         const user = JSON.parse(userInfo);
-         dispatch({ type: 'LOAD_USER_FROM_STORAGE', payload: { token, user } });
-      } catch (error) {
-         console.error("Failed to parse user info from storage", error);
-         // Có thể xóa storage bị lỗi ở đây
-         localStorage.removeItem('accessToken');
-         localStorage.removeItem('userInfo');
+        dispatch({ type: 'LOAD_USER_FROM_STORAGE', payload: { token, user } });
+      } else {
+        dispatch({ type: 'AUTH_ERROR' });
       }
+    } catch (error) {
+      console.error("Failed to load user from storage", error);
+      dispatch({ type: 'AUTH_ERROR' });
     }
-  }, []); // Chạy 1 lần khi mount
+  }, []);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
+  // Chỉ render children khi đã load xong initial auth state
+  if (state.loading) {
+    return <div>Loading...</div>; // Hoặc component loading của bạn
+  }
 
   return (
     <AuthContext.Provider value={{ state, dispatch }}>

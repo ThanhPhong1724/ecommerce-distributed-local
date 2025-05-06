@@ -5,12 +5,14 @@ import { CreatePaymentUrlDto } from './dto/create-payment-url.dto';
 import { VnpayReturnQueryDto } from './dto/vnpay-query.dto';
 import { VnpayIpnQueryDto } from './dto/vnpay-ipn.dto';
 import { Request, Response } from 'express'; // Import Request, Response từ express
+import { ConfigService } from '@nestjs/config'; // <<<<<< IMPORT CONFIGSERVICE
 
 @Controller('payment')
 export class PaymentController {
     private readonly logger = new Logger(PaymentController.name);
 
-    constructor(private readonly paymentService: PaymentService) {}
+    constructor(private readonly paymentService: PaymentService,
+    private readonly configService: ConfigService,) {}
 
       // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
     @Get('health') // Route sẽ là /cart/health
@@ -45,14 +47,29 @@ export class PaymentController {
     // Endpoint xử lý Return URL từ VNPay (GET request)
     @Get('vnpay_return')
     vnpayReturn(@Query() query: VnpayReturnQueryDto, @Res() res: Response) {
-        this.logger.log('VNPay Return URL called with query:', query);
-        const result = this.paymentService.handleVnpayReturn(query);
+        this.logger.log(`[vnpayReturn] Called with query: ${JSON.stringify(query)}`);
+        try {
+            const result = this.paymentService.handleVnpayReturn(query);
+            this.logger.log(`[vnpayReturn] Service result: ${JSON.stringify(result)}`);
 
-        // Redirect người dùng về trang kết quả trên Frontend
-        // Truyền mã kết quả và orderId qua query params để Frontend hiển thị
-        const frontendReturnUrl = `${this.paymentService['configService'].get('FRONTEND_URL')}/payment/result?orderId=${result.orderId}&code=${result.code}&message=${encodeURIComponent(result.message)}`;
-        this.logger.log(`Redirecting to Frontend: ${frontendReturnUrl}`);
-        return res.redirect(frontendReturnUrl); // Thực hiện redirect
+            const frontendBaseUrl = this.configService.get<string>('FRONTEND_URL'); // <<<<<< LẤY TỪ CONFIGSERVICE
+            if (!frontendBaseUrl) {
+                this.logger.error('[vnpayReturn] FRONTEND_URL is not defined in config!');
+                // Trả về lỗi hoặc redirect đến trang lỗi mặc định nếu FRONTEND_URL không có
+                return res.status(500).send('Server configuration error: Frontend URL not set.');
+            }
+
+            const frontendReturnUrl = `${frontendBaseUrl}/payment/result?orderId=${result.orderId}&code=${result.code}&message=${encodeURIComponent(result.message)}`;
+            this.logger.log(`[vnpayReturn] Redirecting to Frontend: ${frontendReturnUrl}`);
+            return res.redirect(frontendReturnUrl);
+        } catch (error) {
+            this.logger.error(`[vnpayReturn] Error processing: ${error.message}`, error.stack);
+            // Trong trường hợp lỗi, redirect về trang lỗi trên frontend
+            const frontendBaseUrlOnError = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173'); // Cung cấp giá trị mặc định nếu có thể
+            const errorRedirectUrl = `${frontendBaseUrlOnError}/payment/result?orderId=${query.vnp_TxnRef || 'unknown'}&code=99&message=${encodeURIComponent('Lỗi xử lý kết quả thanh toán tại máy chủ')}`;
+            this.logger.warn(`[vnpayReturn] Redirecting to error page due to exception: ${errorRedirectUrl}`);
+            return res.redirect(errorRedirectUrl);
+        }
     }
 
     // Endpoint xử lý IPN từ VNPay (GET request)

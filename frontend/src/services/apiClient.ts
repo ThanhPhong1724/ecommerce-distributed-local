@@ -10,39 +10,25 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true // Enable sending cookies
 });
 
 apiClient.interceptors.request.use(
   (config) => {
-    // Make sure this key 'accessToken' EXACTLY matches the key used in localStorage.setItem
     const token = localStorage.getItem('accessToken');
+    console.log('Token found:', token ? `${token.substring(0, 20)}...` : 'No token');
+    
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('Interceptor: Gắn token vào header:', config.headers.Authorization); // Add log
-    } else {
-        console.log('Interceptor: Không tìm thấy token trong localStorage.'); // Add log
+      config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('Authorization header set:', config.headers['Authorization'].substring(0, 50) + '...');
     }
+    
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
-
-// Optional: Interceptor for handling 401 globally (e.g., logout user)
-apiClient.interceptors.response.use(
-  (response) => response, // Do nothing on successful responses
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      console.error("Lỗi 401 Unauthorized từ interceptor:", error.response);
-      // Optional: Clear token and redirect to login
-      // localStorage.removeItem('accessToken');
-      // window.location.href = '/login'; // Or use react-router navigate
-      // alert("Phiên đăng nhập hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
-    }
-    return Promise.reject(error); // Important to reject the error so component's catch block works
-  }
-);
-
 
 export default apiClient;

@@ -156,6 +156,7 @@ services:
     ports:
       - "3004:3004"
     environment:
+      JWT_SECRET: ${JWT_SECRET}  # Đảm bảo biến này được set
       DATABASE_HOST: postgres_db
       DATABASE_PORT: 5432
       DATABASE_USER: ${DB_USER:-admin}

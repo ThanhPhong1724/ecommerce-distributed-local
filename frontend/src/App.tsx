@@ -22,7 +22,7 @@ const App: React.FC = () => {
           <Route path="/products" element={<ProductListPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/payment/vnpay/return" element={<VnPayReturnPage />} />
+          <Route path="/payment/result" element={<VnPayReturnPage />} />
           <Route path="*" element={<h1>404 Not Found</h1>} /> {/* Route cho trang không tồn tại */}
         </Routes>
       </div>

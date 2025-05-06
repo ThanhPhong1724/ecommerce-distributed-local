@@ -39,7 +39,50 @@ export class PaymentService {
   }
 
   // Tạo URL thanh toán VNPay (Code của bạn đã ổn)
-  createPaymentUrl(
+  // createPaymentUrl(
+  //   ipAddr: string,
+  //   orderId: string,
+  //   amount: number,
+  //   orderDescription: string,
+  //   bankCode: string = '',
+  //   language: string = 'vn',
+  // ): string {
+  //   const createDate = new Date();
+  //   const formattedCreateDate = format(createDate, 'yyyyMMddHHmmss');
+
+  //   // VNPay Amount requires integer (multiply by 100)
+  //   const amountFormatted = amount * 100;
+
+  //   let vnp_Params: any = {};
+  //   vnp_Params['vnp_Version'] = '2.1.0';
+  //   vnp_Params['vnp_Command'] = 'pay';
+  //   vnp_Params['vnp_TmnCode'] = this.vnp_TmnCode;
+  //   vnp_Params['vnp_Locale'] = language;
+  //   vnp_Params['vnp_CurrCode'] = 'VND';
+  //   vnp_Params['vnp_TxnRef'] = orderId; // Mã tham chiếu đơn hàng
+  //   vnp_Params['vnp_OrderInfo'] = orderDescription;
+  //   vnp_Params['vnp_OrderType'] = 'other';
+  //   vnp_Params['vnp_Amount'] = amountFormatted;
+  //   vnp_Params['vnp_ReturnUrl'] = this.vnp_ReturnUrl; // Sử dụng biến đã lấy từ config
+  //   vnp_Params['vnp_IpAddr'] = ipAddr;
+  //   vnp_Params['vnp_CreateDate'] = formattedCreateDate;
+  //   if (bankCode !== null && bankCode !== '') {
+  //     vnp_Params['vnp_BankCode'] = bankCode;
+  //   }
+
+  //   vnp_Params = this.sortObject(vnp_Params);
+  //   const signData = new URLSearchParams(vnp_Params).toString();
+  //   const hmac = crypto.createHmac('sha512', this.vnp_HashSecret);
+  //   const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+  //   vnp_Params['vnp_SecureHash'] = signed;
+
+  //   const paymentUrl = this.vnp_Url + '?' + new URLSearchParams(vnp_Params).toString();
+  //   this.logger.log(`Tạo VNPay URL cho Order ${orderId}: ${paymentUrl}`);
+  //   return paymentUrl;
+  // }
+
+   // Trong hàm createPaymentUrl:
+   createPaymentUrl(
     ipAddr: string,
     orderId: string,
     amount: number,
@@ -49,8 +92,6 @@ export class PaymentService {
   ): string {
     const createDate = new Date();
     const formattedCreateDate = format(createDate, 'yyyyMMddHHmmss');
-
-    // VNPay Amount requires integer (multiply by 100)
     const amountFormatted = amount * 100;
 
     let vnp_Params: any = {};
@@ -59,183 +100,239 @@ export class PaymentService {
     vnp_Params['vnp_TmnCode'] = this.vnp_TmnCode;
     vnp_Params['vnp_Locale'] = language;
     vnp_Params['vnp_CurrCode'] = 'VND';
-    vnp_Params['vnp_TxnRef'] = orderId; // Mã tham chiếu đơn hàng
-    vnp_Params['vnp_OrderInfo'] = orderDescription;
+    vnp_Params['vnp_TxnRef'] = orderId;
+    vnp_Params['vnp_OrderInfo'] = orderDescription; // Sẽ được URLSearchParams encode
     vnp_Params['vnp_OrderType'] = 'other';
     vnp_Params['vnp_Amount'] = amountFormatted;
-    vnp_Params['vnp_ReturnUrl'] = this.vnp_ReturnUrl; // Sử dụng biến đã lấy từ config
-    vnp_Params['vnp_IpAddr'] = ipAddr;
+    vnp_Params['vnp_ReturnUrl'] = this.vnp_ReturnUrl; // Sẽ được URLSearchParams encode
+    vnp_Params['vnp_IpAddr'] = ipAddr; // Sẽ được URLSearchParams encode
     vnp_Params['vnp_CreateDate'] = formattedCreateDate;
     if (bankCode !== null && bankCode !== '') {
       vnp_Params['vnp_BankCode'] = bankCode;
     }
 
-    vnp_Params = this.sortObject(vnp_Params);
-    const signData = new URLSearchParams(vnp_Params).toString();
+    // Sắp xếp các tham số
+    const sortedParams = this.sortObject(vnp_Params);
+
+    // Tạo chuỗi dữ liệu để ký
+    // new URLSearchParams sẽ tự động encode các key và value theo chuẩn x-www-form-urlencoded
+    const signData = new URLSearchParams(sortedParams).toString();
+
     const hmac = crypto.createHmac('sha512', this.vnp_HashSecret);
     const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
-    vnp_Params['vnp_SecureHash'] = signed;
 
-    const paymentUrl = this.vnp_Url + '?' + new URLSearchParams(vnp_Params).toString();
+    // Thêm hash vào params (sau khi đã sort và tạo signData)
+    // Quan trọng: Phải thêm vnp_SecureHash vào object *sau khi* đã tạo signData từ các params gốc
+    // và trước khi tạo paymentUrl cuối cùng.
+    // Cách tốt nhất là tạo một object mới cho payment URL params bao gồm cả hash.
+    const paymentUrlParams = { ...sortedParams, vnp_SecureHash: signed };
+
+    const paymentUrl = this.vnp_Url + '?' + new URLSearchParams(paymentUrlParams).toString();
     this.logger.log(`Tạo VNPay URL cho Order ${orderId}: ${paymentUrl}`);
     return paymentUrl;
   }
 
   // Xử lý Return URL (Code của bạn đã ổn)
   handleVnpayReturn(query: VnpayReturnQueryDto): { code: string; message: string; orderId: string, status: OrderStatus, frontendReturnUrl: string } {
-    const secureHash = query.vnp_SecureHash;
-    const orderId = query.vnp_TxnRef; // Lấy orderId từ query
-    delete query.vnp_SecureHash;
+    const { vnp_SecureHash: receivedSecureHash, ...paramsWithoutHash } = query; // <<<< SỬA Ở ĐÂY
+    const orderId = query.vnp_TxnRef;
 
-    const params = this.sortObject(query);
-    const signData = new URLSearchParams(params).toString();
+    this.logger.log(`[handleVnpayReturn] Received Order: ${orderId}, Received Hash: ${receivedSecureHash}`);
+
+    // paramsWithoutHash bây giờ là một object mới không chứa vnp_SecureHash
+    const sortedParamsToSign = this.sortObject(paramsWithoutHash);
+    const signData = new URLSearchParams(sortedParamsToSign).toString();
+    this.logger.log(`[handleVnpayReturn] Data for signing (Order ${orderId}): ${signData}`);
+
     const hmac = crypto.createHmac('sha512', this.vnp_HashSecret);
-    const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+    const calculatedSignedHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+    this.logger.log(`[handleVnpayReturn] Calculated Hash (Order ${orderId}): ${calculatedSignedHash}`);
 
     let responseCode: string;
     let message: string;
     let status: OrderStatus = OrderStatus.FAILED;
 
-    if (secureHash === signed) {
-      this.logger.log(`VNPay Return Hash hợp lệ cho Order: ${orderId}`);
+    if (receivedSecureHash === calculatedSignedHash) {
+      this.logger.log(`[handleVnpayReturn] VNPay Return Hash VALID for Order: ${orderId}`);
       if (query.vnp_ResponseCode === '00' && query.vnp_TransactionStatus === '00') {
         responseCode = '00';
         message = 'Giao dịch thành công';
         status = OrderStatus.PROCESSING;
-        this.logger.log(`VNPay Return báo thành công cho Order: ${orderId}`);
+        this.logger.log(`[handleVnpayReturn] VNPay Return báo thành công cho Order: ${orderId}`);
       } else {
-        responseCode = query.vnp_ResponseCode;
-        message = this.getVnpayMessage(responseCode);
+        responseCode = query.vnp_ResponseCode!; // Thêm '!' nếu bạn chắc chắn nó có, hoặc kiểm tra null/undefined
+        message = this.getVnpayMessage(query.vnp_ResponseCode!);
         status = OrderStatus.FAILED;
-        this.logger.warn(`VNPay Return báo thất bại cho Order: ${orderId}, Code: ${responseCode}`);
+        this.logger.warn(`[handleVnpayReturn] VNPay Return báo thất bại cho Order: ${orderId}, Code: ${query.vnp_ResponseCode}`);
       }
     } else {
-      this.logger.error(`VNPay Return Hash KHÔNG hợp lệ cho Order: ${orderId}`);
+      this.logger.error(`[handleVnpayReturn] VNPay Return Hash INVALID for Order: ${orderId}. Received: ${receivedSecureHash}, Calculated: ${calculatedSignedHash}`);
       responseCode = '97';
       message = 'Chữ ký không hợp lệ';
       status = OrderStatus.FAILED;
     }
-    // Tạo URL trả về cho Frontend
     const frontendReturnUrl = `${this.frontend_url}/payment/result?orderId=${orderId}&code=${responseCode}&message=${encodeURIComponent(message)}`;
-    return { code: responseCode, message, orderId, status, frontendReturnUrl };
+    return { code: responseCode, message, orderId: orderId!, status, frontendReturnUrl }; // Thêm '!' cho orderId nếu cần
   }
 
-   // Xử lý IPN từ VNPay (Quan trọng nhất)
-   async handleVnpayIPN(query: VnpayIpnQueryDto): Promise<{ RspCode: string; Message: string }> {
-    const secureHash = query.vnp_SecureHash;
-    const orderId = query.vnp_TxnRef;
-    const rspCode = query.vnp_ResponseCode;
-    const transactionStatus = query.vnp_TransactionStatus;
-    const amount = parseInt(query.vnp_Amount) / 100; // Chia lại cho 100
+// src/payment/payment.service.ts
 
-    delete query.vnp_SecureHash;
-    const params = this.sortObject(query);
-    const signData = new URLSearchParams(params).toString();
-    const hmac = crypto.createHmac("sha512", this.vnp_HashSecret);
-    const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+// ... (các imports khác, constructor, createPaymentUrl, handleVnpayReturn, sortObject, getVnpayMessage, parseVnpayDate) ...
 
-    // --- Bắt đầu kiểm tra ---
-    try {
-        // 1. Kiểm tra checksum
-        if (secureHash !== signed) {
-            this.logger.error(`IPN Checksum failed for Order ID: ${orderId}`);
-            return { RspCode: "97", Message: "Invalid Checksum" };
-        }
-        this.logger.log(`IPN Checksum valid for Order ID: ${orderId}.`);
+async handleVnpayIPN(query: VnpayIpnQueryDto): Promise<{ RspCode: string; Message: string }> {
+  // Sử dụng destructuring để tách vnp_SecureHash và các params còn lại
+  const { vnp_SecureHash: receivedSecureHash, ...paramsWithoutHash } = query;
 
-        // === PHẦN TƯƠNG TÁC VỚI ORDER SERVICE (SẼ IMPLEMENT KHI CÓ ORDER SERVICE) ===
-        // 2. Kiểm tra Order ID có tồn tại và lấy thông tin đơn hàng
-        this.logger.log(`Checking Order existence and details for Order ID: ${orderId}...`);
-        // Placeholder: Giả sử gọi Order Service thành công và lấy được thông tin
-        // const orderDetails = await this.callOrderServiceToCheck(orderId); // Hàm giả định
-        const orderDetails = { exists: true, currentStatus: OrderStatus.PENDING, totalAmount: amount }; // Dữ liệu giả định
+  // Lấy các thông tin cần thiết từ query gốc một cách an toàn
+  const orderId = query.vnp_TxnRef; // Giả sử vnp_TxnRef là bắt buộc trong VnpayIpnQueryDto
+  const rspCode = query.vnp_ResponseCode; // Giả sử vnp_ResponseCode là bắt buộc
+  const transactionStatus = query.vnp_TransactionStatus; // Giả sử vnp_TransactionStatus là bắt buộc
+  
+  // Chuyển đổi amount từ string sang number. Đảm bảo vnp_Amount tồn tại và là string số.
+  // Nếu vnp_Amount có thể không tồn tại, cần kiểm tra trước khi parseInt.
+  // Giả sử VnpayIpnQueryDto định nghĩa vnp_Amount là string và bắt buộc.
+  const amount = parseInt(query.vnp_Amount, 10) / 100;
 
-        if (!orderDetails.exists) {
-            this.logger.error(`IPN Order ID not found via Order Service: ${orderId}`);
-            return { RspCode: '01', Message: 'Order not found' };
-        }
-        this.logger.log(`IPN Order ID ${orderId} found.`);
-
-        // 3. Kiểm tra số tiền
-        if (orderDetails.totalAmount !== amount) {
-            this.logger.error(`IPN Invalid amount for Order ID: ${orderId}. Expected: ${orderDetails.totalAmount}, Received: ${amount}`);
-            return { RspCode: '04', Message: 'Invalid amount' };
-        }
-        this.logger.log(`IPN Amount valid for Order ID: ${orderId}.`);
-
-        // 4. Kiểm tra trạng thái đơn hàng (tránh xử lý lại)
-        if (orderDetails.currentStatus !== OrderStatus.PENDING) {
-            this.logger.warn(`IPN Order ID ${orderId} is not in PENDING state (Current: ${orderDetails.currentStatus}). Already processed?`);
-            // VNPay yêu cầu trả về 00 và message thành công nếu đã xử lý trước đó
-            return { RspCode: '00', Message: 'Confirm Success' };
-             // Hoặc trả mã 02 nếu muốn báo lỗi rõ hơn (nhưng VNPay có thể gửi lại IPN)
-             // return { RspCode: '02', Message: 'Order already confirmed' };
-        }
-        this.logger.log(`IPN Order ID ${orderId} status is PENDING. Processing payment result...`);
-        // === KẾT THÚC PHẦN TƯƠNG TÁC VỚI ORDER SERVICE ===
+  this.logger.log(`[handleVnpayIPN] Received for Order ID: ${orderId}, Received Hash: ${receivedSecureHash}`);
+  this.logger.log(`[handleVnpayIPN] Full IPN Query: ${JSON.stringify(query)}`);
 
 
-        // --- Xử lý kết quả giao dịch ---
-        let paymentStatus: OrderStatus;
-        if (rspCode === "00" && transactionStatus === "00") {
-            paymentStatus = OrderStatus.PROCESSING; // Thành công -> Order chuyển sang Đang xử lý
-            this.logger.log(`IPN Payment SUCCESS for Order ID: ${orderId}`);
-        } else {
-            paymentStatus = OrderStatus.FAILED; // Thất bại -> Order chuyển sang Thất bại
-            this.logger.warn(`IPN Payment FAILED for Order ID: ${orderId}, RspCode: ${rspCode}, TxnStatus: ${transactionStatus}`);
-        }
+  // Sắp xếp các tham số không bao gồm vnp_SecureHash
+  const sortedParamsToSign = this.sortObject(paramsWithoutHash);
+  const signData = new URLSearchParams(sortedParamsToSign).toString();
+  this.logger.log(`[handleVnpayIPN] Data for signing (Order ID: ${orderId}): ${signData}`);
 
-        // --- Publish sự kiện `payment_processed` ---
-        const eventPayload = {
-            orderId: orderId,
-            status: paymentStatus, // Trạng thái mới của Order
-            paymentMethod: 'VNPay', // Thêm thông tin phương thức TT
-            transactionId: query.vnp_TransactionNo, // Mã giao dịch VNPay
-            paymentTime: query.vnp_PayDate ? format(new Date(this.parseVnpayDate(query.vnp_PayDate)), 'yyyy-MM-dd HH:mm:ss') : new Date().toISOString(), // Thời gian thanh toán
-            errorCode: rspCode,
-            errorMessage: this.getVnpayMessage(rspCode),
-        };
-        try {
-            this.logger.log(`Publishing payment_processed event: ${JSON.stringify(eventPayload)}`);
-            // Dùng emit để gửi đi, không cần chờ phản hồi
-            this.rabbitClient.emit('payment_processed', eventPayload);
-            // Không cần `await firstValueFrom(this.rabbitClient.emit(...))` nếu chỉ là thông báo
-        } catch (error) {
-            this.logger.error(`Error publishing payment_processed event for Order ${orderId}: ${error.message}`, error.stack);
-            // Vẫn nên trả về thành công cho VNPay để tránh bị gọi IPN lại
-        }
+  // Tạo checksum mới
+  const hmac = crypto.createHmac('sha512', this.vnp_HashSecret);
+  const calculatedSignedHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+  this.logger.log(`[handleVnpayIPN] Calculated Hash (Order ID: ${orderId}): ${calculatedSignedHash}`);
 
-        // --- Trả kết quả thành công cho VNPay ---
-        this.logger.log(`Responding 'Confirm Success' to VNPay for Order ID: ${orderId}`);
-        return { RspCode: "00", Message: "Confirm Success" };
-
-    } catch (error) {
-        this.logger.error(`Unexpected error handling IPN for Order ID: ${orderId}: ${error.message}`, error.stack);
-        // Trả lỗi chung cho VNPay nếu có lỗi ngoài dự kiến
-        return { RspCode: '99', Message: 'Unknown error' };
+  try {
+    // 1. Kiểm tra checksum
+    if (receivedSecureHash !== calculatedSignedHash) {
+      this.logger.error(`[handleVnpayIPN] IPN Checksum FAILED for Order ID: ${orderId}. Received: ${receivedSecureHash}, Calculated: ${calculatedSignedHash}`);
+      return { RspCode: '97', Message: 'Invalid Checksum' }; // Mã lỗi VNPay: Sai chữ ký
     }
+    this.logger.log(`[handleVnpayIPN] IPN Checksum VALID for Order ID: ${orderId}.`);
+
+    // === PHẦN TƯƠNG TÁC VỚI ORDER SERVICE ===
+    // 2. Kiểm tra Order ID có tồn tại và lấy thông tin đơn hàng
+    this.logger.log(`[handleVnpayIPN] Checking Order existence and details for Order ID: ${orderId}...`);
+    // TODO: Thay thế bằng logic gọi Order Service thực tế
+    // const orderDetails = await this.orderServiceClient.send('find_order_by_id', { orderId }).toPromise();
+    const orderDetails = { // Dữ liệu giả định cho mục đích test
+      exists: true,
+      currentStatus: OrderStatus.PENDING, // Trạng thái hiện tại của đơn hàng trong DB của bạn
+      totalAmount: amount, // Số tiền của đơn hàng trong DB của bạn
+    };
+
+    if (!orderDetails || !orderDetails.exists) {
+      this.logger.error(`[handleVnpayIPN] IPN Order ID not found via Order Service: ${orderId}`);
+      return { RspCode: '01', Message: 'Order not found' }; // Mã lỗi VNPay: Đơn hàng không tồn tại
+    }
+    this.logger.log(`[handleVnpayIPN] IPN Order ID ${orderId} found. Current DB Status: ${orderDetails.currentStatus}, DB Amount: ${orderDetails.totalAmount}`);
+
+    // 3. Kiểm tra số tiền
+    if (orderDetails.totalAmount !== amount) {
+      this.logger.error(`[handleVnpayIPN] IPN Invalid amount for Order ID: ${orderId}. Expected (DB): ${orderDetails.totalAmount}, Received (VNPay): ${amount}`);
+      return { RspCode: '04', Message: 'Invalid amount' }; // Mã lỗi VNPay: Sai số tiền
+    }
+    this.logger.log(`[handleVnpayIPN] IPN Amount VALID for Order ID: ${orderId}.`);
+
+    // 4. Kiểm tra trạng thái đơn hàng (tránh xử lý lại nếu đơn hàng đã được xử lý thành công hoặc thất bại trước đó)
+    if (orderDetails.currentStatus !== OrderStatus.PENDING) {
+      // Nếu đơn hàng đã ở trạng thái PROCESSING, COMPLETED, hoặc FAILED, có thể IPN này là một bản gọi lại.
+      // VNPay yêu cầu trả về "00" và "Confirm Success" nếu đơn hàng đã được xử lý thành công trước đó.
+      // Nếu đơn đã FAILED, việc trả về 00 cũng là một lựa chọn để tránh VNPAY gọi lại liên tục.
+      this.logger.warn(`[handleVnpayIPN] Order ID ${orderId} is not in PENDING state (Current DB Status: ${orderDetails.currentStatus}). Potentially already processed.`);
+      // Kiểm tra xem rspCode từ IPN có phải là thành công không, để quyết định có nên trả về '00' không
+      if (rspCode === '00' && transactionStatus === '00') {
+           // Nếu IPN báo thành công và đơn hàng đã ở trạng thái hoàn tất (ví dụ: PROCESSING hoặc COMPLETED)
+           if (orderDetails.currentStatus === OrderStatus.PROCESSING || orderDetails.currentStatus === OrderStatus.COMPLETED) {
+              this.logger.log(`[handleVnpayIPN] Order ${orderId} already in ${orderDetails.currentStatus}. Confirming success to VNPay.`);
+              return { RspCode: '00', Message: 'Confirm Success' };
+           }
+      }
+      // Nếu đơn hàng đã FAILED hoặc IPN báo thất bại cho một đơn hàng không còn PENDING
+      // Bạn có thể trả về 02 nếu muốn, nhưng VNPAY có thể thử lại.
+      // An toàn hơn là trả 00 nếu đơn hàng đã được xử lý dù kết quả là gì.
+      // Tuy nhiên, nếu rspCode không phải '00', trả về mã lỗi tương ứng từ VNPAY có thể hợp lý hơn.
+      // Dựa trên tài liệu, nên trả 00 nếu đã xử lý
+      this.logger.log(`[handleVnpayIPN] Order ${orderId} is in ${orderDetails.currentStatus}. Considering it handled, returning Confirm Success.`);
+      return { RspCode: '00', Message: 'Confirm Success' }; // Hoặc RspCode: '02', Message: 'Order already confirmed/failed'
+
+    }
+    this.logger.log(`[handleVnpayIPN] IPN Order ID ${orderId} status is PENDING. Processing payment result...`);
+    // === KẾT THÚC PHẦN TƯƠNG TÁC VỚI ORDER SERVICE ===
+
+    // --- Xử lý kết quả giao dịch ---
+    let newOrderStatus: OrderStatus;
+    if (rspCode === '00' && transactionStatus === '00') {
+      newOrderStatus = OrderStatus.PROCESSING; // Giao dịch thành công -> Order chuyển sang Đang xử lý (hoặc COMPLETED tùy luồng)
+      this.logger.log(`[handleVnpayIPN] IPN Payment SUCCESS for Order ID: ${orderId}`);
+    } else {
+      newOrderStatus = OrderStatus.FAILED; // Giao dịch thất bại -> Order chuyển sang Thất bại
+      this.logger.warn(`[handleVnpayIPN] IPN Payment FAILED for Order ID: ${orderId}, VNPay RspCode: ${rspCode}, VNPay TxnStatus: ${transactionStatus}`);
+    }
+
+    // --- Publish sự kiện `payment_processed` để Order Service cập nhật trạng thái ---
+    const eventPayload = {
+      orderId: orderId,
+      status: newOrderStatus,
+      paymentMethod: 'VNPay',
+      transactionId: query.vnp_TransactionNo, // Mã giao dịch từ VNPay
+      paymentTime: query.vnp_PayDate ? format(new Date(this.parseVnpayDate(query.vnp_PayDate)), 'yyyy-MM-dd HH:mm:ss') : new Date().toISOString(),
+      errorCode: rspCode, // Mã lỗi từ VNPay
+      errorMessage: this.getVnpayMessage(rspCode!), // Thêm '!' nếu rspCode chắc chắn là string
+    };
+
+    try {
+      this.logger.log(`[handleVnpayIPN] Publishing 'payment_processed' event for Order ID ${orderId}: ${JSON.stringify(eventPayload)}`);
+      this.rabbitClient.emit('payment_processed', eventPayload);
+      // Không cần await nếu đây là thông báo và không cần chờ kết quả
+    } catch (rabbitError) {
+      this.logger.error(`[handleVnpayIPN] Error publishing 'payment_processed' event for Order ${orderId}: ${rabbitError.message}`, rabbitError.stack);
+      // Lỗi này không nên ngăn cản việc trả lời VNPay, nhưng cần được log và theo dõi.
+    }
+
+    // --- Trả kết quả thành công cho VNPay để họ không gửi IPN lại ---
+    // Dù giao dịch thành công hay thất bại, nếu đã xử lý logic, VNPAY yêu cầu trả về 00 (Confirm Success)
+    this.logger.log(`[handleVnpayIPN] Responding 'Confirm Success' to VNPay for Order ID: ${orderId} after processing.`);
+    return { RspCode: '00', Message: 'Confirm Success' };
+
+  } catch (error) {
+    this.logger.error(`[handleVnpayIPN] UNEXPECTED error handling IPN for Order ID: ${orderId}: ${error.message}`, error.stack);
+    // Trong trường hợp lỗi không mong muốn, trả lỗi chung cho VNPay
+    return { RspCode: '99', Message: 'Unknown error' }; // Mã lỗi VNPay: Lỗi không xác định
+  }
 }
 
-
-  // Hàm helper sortObject (Code của bạn đã ổn)
+  // Hàm helper sortObject đã được sửa
   private sortObject(obj: any): any {
     let sorted: any = {};
     let str: string[] = [];
     let key: any;
     for (key in obj) {
       if (obj.hasOwnProperty(key)) {
-        str.push(encodeURIComponent(key));
+        // Key được encode để đảm bảo thứ tự sort đúng,
+        // nhưng giá trị của key khi đưa vào mảng str phải là key gốc (chưa encode)
+        // để khi lấy ra từ obj[decodedKey] sẽ là giá trị gốc.
+        // Cách đơn giản hơn là chỉ cần sort các key gốc.
+        str.push(key); // Chỉ cần push key gốc
       }
     }
-    str.sort();
-    for (key = 0; key < str.length; key++) {
-       // Cần decode key trước khi gán vào sorted object
-       const decodedKey = decodeURIComponent(str[key]);
-      sorted[decodedKey] = encodeURIComponent(obj[decodedKey]).replace(/%20/g, '+');
+    str.sort(); // Sort các key gốc
+
+    for (let i = 0; i < str.length; i++) {
+      const currentKey = str[i];
+      // Lấy giá trị gốc, không encode ở đây
+      // new URLSearchParams sẽ tự động encode các giá trị khi .toString()
+      sorted[currentKey] = obj[currentKey];
     }
     return sorted;
   }
 
+    
   // Hàm helper getVnpayMessage (Code của bạn đã ổn)
   private getVnpayMessage(responseCode: string): string {
     switch (responseCode) {

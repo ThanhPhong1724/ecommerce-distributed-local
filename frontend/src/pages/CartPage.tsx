@@ -2,8 +2,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext'; // Import hook
+import { useNavigate } from 'react-router-dom'; // <<< Import useNavigate
 
 const CartPage: React.FC = () => {
+  const navigate = useNavigate(); // <<< Khởi tạo navigate
   // <<< Sửa lại dòng này >>>
   const { state, updateQuantity, removeFromCart } = useCart();
   // Lấy isLoading từ state
@@ -84,7 +86,9 @@ const CartPage: React.FC = () => {
       </div>
       <div style={{ marginTop: '20px' }}>
          {/* TODO: Nút Chuyển đến trang Checkout */}
-        <button disabled={state.isLoading}>Tiến hành đặt hàng</button>
+        <button onClick={() => navigate('/checkout')} disabled={state.isLoading || state.items.length === 0}>
+          Tiến hành đặt hàng
+        </button>
       </div>
     </div>
   );
