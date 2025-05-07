@@ -31,6 +31,7 @@ export class NotificationsService {
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
   ) {
+this.logger.log('!!! NotificationsService constructor CALLED !!!');
     this.logger.log('!!! NotificationsService constructor CALLED !!!');
     this.mailFrom = this.configService.get<string>('MAIL_FROM', 'noreply@example.com');
   }

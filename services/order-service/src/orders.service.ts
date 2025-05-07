@@ -268,7 +268,12 @@ export class OrdersService {
   // Trong orders.service.ts
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order | undefined> { // Hoặc kiểu trả về phù hợp
     this.logger.log(`[updateOrderStatus] Attempting to update order ${orderId} to status ${status}`);
-    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    // const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['items']  // Lấy thêm items để gửi thông báo
+    });
+
     if (!order) {
       this.logger.error(`[updateOrderStatus] Order with ID ${orderId} not found.`);
       // Có thể ném lỗi hoặc xử lý tùy theo logic của bạn
@@ -280,6 +285,29 @@ export class OrdersService {
     try {
       const updatedOrder = await this.orderRepository.save(order);
       this.logger.log(`[updateOrderStatus] Successfully saved order ${orderId} with new status ${updatedOrder.status}`);
+      // Nếu trạng thái là PROCESSING (đã thanh toán thành công)
+      if (status === OrderStatus.PROCESSING) {
+        // Chuẩn bị payload để gửi notification
+        const notificationPayload = {
+          orderId: order.id,
+          userId: order.userId,
+          totalAmount: order.totalAmount,
+          items: order.items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+            name: item.productName
+          })),
+          createdAt: order.createdAt,
+          shippingAddress: order.shippingAddress,
+          status: status,
+          paymentStatus: 'SUCCESS'
+        };
+
+        // Emit event đến notification service
+        this.logger.log(`[updateOrderStatus] Gửi thông báo cho đơn hàng ${orderId}`);
+        this.rabbitClient.emit('notifications.queue', notificationPayload);
+      }      
       return updatedOrder;
     } catch (error) {
       this.logger.error(`[updateOrderStatus] Failed to save order ${orderId} with new status: ${error.message}`, error.stack);
