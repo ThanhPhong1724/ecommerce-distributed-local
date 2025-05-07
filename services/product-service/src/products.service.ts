@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common'; // Import thêm Inject
+import { Injectable, NotFoundException, Inject, Logger, BadRequestException, HttpException, InternalServerErrorException } from '@nestjs/common'; // Import thêm Inject
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Import CACHE_MANAGER từ @nestjs/cache-manager
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm'; // Import InjectDataSource
+import { Repository, DataSource } from 'typeorm'; // Import DataSource
 import { Product } from './products/entities/product.entity';
 import { CreateProductDto } from './products/dto/create-product.dto';
 import { UpdateProductDto } from './products/dto/update-product.dto';
@@ -10,11 +10,14 @@ import { Cache } from 'cache-manager'; // Import kiểu Cache
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name); // <<< Thêm Logger
+
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly categoriesService: CategoriesService, // Inject CategoriesService
-    @Inject(CACHE_MANAGER) private cacheManager: Cache // Inject CacheManager
+    @Inject(CACHE_MANAGER) private cacheManager: Cache, // Inject CacheManager
+    @InjectDataSource() private dataSource: DataSource, // <<< Inject DataSource
   ) {}
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
@@ -86,6 +89,69 @@ export class ProductsService {
     await this.clearProductsCache(); // Xóa cache của list products
   }
 
+  // --- HÀM CẬP NHẬT TỒN KHO ---
+  async updateStock(id: string, change: number): Promise<Product> {
+    if (change === 0) {
+          this.logger.warn(`Received stock update request with change=0 for product ${id}. No action taken.`);
+          // Trả về sản phẩm hiện tại nếu change là 0
+          const currentProduct = await this.findOne(id); // Dùng findOne để lấy từ cache nếu có
+          if(!currentProduct) throw new NotFoundException(`Sản phẩm với ID ${id} không tìm thấy.`);
+          return currentProduct;
+    }
+
+    this.logger.log(`Updating stock for product ${id}, change: ${change}`);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE'); // <<< Mức cô lập cao nhất để tránh race condition
+
+    try {
+      // Lấy sản phẩm và khóa dòng (Pessimistic Write Lock)
+      const product = await queryRunner.manager.findOne(Product, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!product) {
+        throw new NotFoundException(`Sản phẩm với ID ${id} không tìm thấy trong transaction.`);
+      }
+
+      this.logger.debug(`[Transaction] Product ${id} current stock: ${product.stockQuantity}`);
+
+      const newStock = product.stockQuantity + change;
+
+      // Kiểm tra tồn kho âm khi giảm
+      if (newStock < 0) {
+        throw new BadRequestException(`Không đủ tồn kho cho sản phẩm "${product.name}" (ID: ${id}). Chỉ còn ${product.stockQuantity}, cần giảm ${-change}.`);
+      }
+
+      // Cập nhật số lượng
+      product.stockQuantity = newStock;
+
+      // Lưu thay đổi
+      const updatedProduct = await queryRunner.manager.save(Product, product); // Chỉ lưu product
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+      this.logger.log(`[Transaction] Product ${id} stock updated to ${updatedProduct.stockQuantity}. Commited.`);
+
+      // Xóa Cache sau khi commit thành công
+      await this.clearProductCache(id);
+      await this.clearProductsCache(); // Xóa cả cache list
+
+      return updatedProduct;
+
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Failed to update stock for product ${id}. Rolled back. Error: ${error.message}`, error.stack);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException('Lỗi hệ thống khi cập nhật tồn kho.');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+  // --- KẾT THÚC HÀM CẬP NHẬT TỒN KHO ---
+  
   // --- Cache Invalidation Helpers ---
   private async clearProductCache(id: string) {
       const cacheKey = `product_${id}`;

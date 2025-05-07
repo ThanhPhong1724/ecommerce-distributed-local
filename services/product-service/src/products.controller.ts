@@ -1,13 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, ValidationPipe, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common'; // Import thêm Cache...
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, ValidationPipe, UseInterceptors, ClassSerializerInterceptor, Logger } from '@nestjs/common'; // Import thêm Cache...
 import { CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import { CacheInterceptor } from '@nestjs/cache-manager';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './products/dto/create-product.dto';
 import { UpdateProductDto } from './products/dto/update-product.dto';
+import { UpdateStockDto } from './products/dto/update-stock.dto'; 
 import { Put, Request, HttpCode, HttpStatus, UseGuards } from '@nestjs/common'; // Thêm HttpCode, HttpStatus
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('products')
 export class ProductsController {
+  private readonly logger = new Logger(ProductsController.name); // <<< Thêm Logger
+  
   constructor(private readonly productsService: ProductsService) {}
 
   // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
@@ -19,6 +22,22 @@ export class ProductsController {
   }
   // --- KẾT THÚC HEALTH CHECK ---
 
+  // --- ENDPOINT CẬP NHẬT TỒN KHO ---
+  @Patch(':id/stock')
+  @HttpCode(HttpStatus.OK)
+  async updateStock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(ValidationPipe) updateStockDto: UpdateStockDto,
+  ): Promise<{ message: string; newStock: number }> { // Trả về thông báo và số lượng mới
+    this.logger.log(`API: Received stock update for ${id}: change ${updateStockDto.change}`);
+    const updatedProduct = await this.productsService.updateStock(id, updateStockDto.change);
+    return {
+        message: 'Cập nhật tồn kho thành công',
+        newStock: updatedProduct.stockQuantity
+    };
+  }
+  // --- KẾT THÚC ENDPOINT TỒN KHO ---
+  
   @Post()
   create(@Body(ValidationPipe) createProductDto: CreateProductDto) {
     return this.productsService.create(createProductDto);

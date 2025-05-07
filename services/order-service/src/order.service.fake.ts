@@ -36,62 +36,38 @@ export class OrdersService {
 
   // Hàm helper để gọi API service khác
   private async callService<T>(url: string, config: any = {}): Promise<T> {
-    const method = config.method?.toLowerCase() || 'get';
-    const { method: removedMethod, ...axiosConfig } = config;
-    // Log token một cách an toàn
-    const loggableHeaders = { ...axiosConfig.headers };
-    if (loggableHeaders.Authorization) {
-      loggableHeaders.Authorization = `${loggableHeaders.Authorization.substring(0, 15)}...[REDACTED]`;
-    }
-    this.logger.debug(`Calling [${method.toUpperCase()}] ${url}`, { data: axiosConfig.data, headers: loggableHeaders });
-
     try {
-      let responseObservable;
-      switch (method) {
-        case 'post':
-          responseObservable = this.httpService.post<T>(url, axiosConfig.data, axiosConfig);
-          break;
-        case 'put':
-          responseObservable = this.httpService.put<T>(url, axiosConfig.data, axiosConfig);
-          break;
-        case 'patch': // <<< THÊM CASE CHO PATCH
-          responseObservable = this.httpService.patch<T>(url, axiosConfig.data, axiosConfig);
-          break;
-        case 'delete':
-          responseObservable = this.httpService.delete<T>(url, axiosConfig);
-          break;
-        default: // 'get'
-          responseObservable = this.httpService.get<T>(url, axiosConfig);
-          break;
-      }
+      this.logger.debug('Calling service:', url);
+      this.logger.debug('Request config:', {
+        ...config,
+        headers: {
+          ...config.headers,
+          Authorization: config.headers?.Authorization ? 
+            `${config.headers.Authorization.substring(0, 20)}...` : 
+            'No token'
+        }
+      });
 
-      const response = await firstValueFrom<AxiosResponse<T>>(
-        responseObservable.pipe(
+      const response = await firstValueFrom(
+        this.httpService.get<T>(url, config).pipe(
           catchError((error) => {
-            const status = error.response?.status;
-            const responseData = error.response?.data;
-            const message = responseData?.message || error.message;
-
-            this.logger.error(
-              `Lỗi khi gọi [${method.toUpperCase()}] ${url}: Status ${status}, Message: ${message}`,
-              responseData || error.stack // Log thêm chi tiết lỗi nếu có
-            );
-
-            throw new HttpException(
-              { message: message || 'Lỗi giao tiếp với service khác', error: responseData?.error || 'Service Error', statusCode: status || HttpStatus.INTERNAL_SERVER_ERROR },
-              status || HttpStatus.INTERNAL_SERVER_ERROR,
-              { cause: error }
-            );
+            this.logger.error(`Service call failed:`, {
+              url,
+              status: error.response?.status,
+              message: error.response?.data?.message || error.message,
+              headers: error.response?.headers
+            });
+            throw error;
           }),
         ),
       );
-      return response.data as T;
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error(`Lỗi không xác định khi gọi ${url}: ${error.message}`, error.stack);
-      throw new InternalServerErrorException(`Lỗi không xác định khi gọi service: ${error.message}`);
-    }
 
+      return response.data;
+    } catch (error) {
+      // Đảm bảo throw lại lỗi để transaction có thể rollback
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(`Lỗi không xác định khi gọi ${url}: ${error.message}`);
+    }
   }
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto, userToken: string): Promise<Order> {
@@ -118,47 +94,9 @@ export class OrdersService {
       throw new BadRequestException('Giỏ hàng trống, không thể tạo đơn hàng.');
     }
 
-    // --- 2. KIỂM TRA TỒN KHO TRƯỚC TRANSACTION ---
-    this.logger.log(`[${userId}] === BƯỚC 1: KIỂM TRA TỒN KHO ===`);
-    const orderItemsData: Partial<OrderItem>[] = [];
-    const productStockUpdates: { productId: string; quantityChange: number }[] = [];
-    let totalAmount = 0;
-
-    for (const item of cart.items) {
-      let product: ProductInterface;
-      const productUrl = `${this.productServiceUrl}/products/${item.productId}`;
-      try {
-        // Gọi API lấy thông tin sản phẩm (bao gồm cả stockQuantity)
-        product = await this.callService<ProductInterface>(productUrl); // <<< Gọi API ở đây
-        this.logger.log(`[${userId}] Kiểm tra SP ${item.productId}: Cần ${item.quantity}, Còn ${product.stockQuantity}`);
-        // Kiểm tra tồn kho ngay tại đây
-        if (product.stockQuantity < item.quantity) {
-          // Nếu không đủ hàng, ném lỗi NGAY LẬP TỨC, không cần chạy tiếp
-          throw new BadRequestException(`Sản phẩm "${product.name}" (ID: ${item.productId}) không đủ số lượng tồn kho (cần ${item.quantity}, còn ${product.stockQuantity}). Vui lòng cập nhật giỏ hàng.`);
-        }
-        // Nếu đủ hàng, chuẩn bị dữ liệu
-        totalAmount += product.price * item.quantity;
-        orderItemsData.push({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: product.price, // Lưu giá tại thời điểm đặt hàng
-          productName: product.name, // Lưu tên tại thời điểm đặt hàng
-        });
-        productStockUpdates.push({ productId: item.productId, quantityChange: -item.quantity }); // quantityChange là số âm
-
-      } catch (error) {
-         this.logger.error(`[${userId}] Lỗi khi kiểm tra sản phẩm ${item.productId}: ${error.message}`);
-         // Ném lại lỗi để dừng quá trình tạo đơn
-         if (error instanceof HttpException) throw error;
-         throw new InternalServerErrorException('Lỗi khi kiểm tra thông tin sản phẩm.');
-      }
-    }
-    this.logger.log(`[${userId}] === KẾT THÚC KIỂM TRA TỒN KHO === OK. Tổng tiền: ${totalAmount}`);
-    // --- KẾT THÚC BƯỚC 2 ---
-
     // --- 2. Kiểm tra thông tin sản phẩm và tồn kho từ product-service ---
-    // let totalAmount = 0;
-    // const orderItemsData: Partial<OrderItem>[] = []; // Mảng chứa dữ liệu item để tạo
+    let totalAmount = 0;
+    const orderItemsData: Partial<OrderItem>[] = []; // Mảng chứa dữ liệu item để tạo
 
     this.logger.log('Kiểm tra thông tin sản phẩm và tồn kho...');
     for (const item of cart.items) {
@@ -187,9 +125,6 @@ export class OrdersService {
     }
     this.logger.log(`Tổng tiền đơn hàng dự kiến: ${totalAmount}`);
 
-    // --- KẾT THÚC BƯỚC 2 ---
-
-
     // --- 3. Sử dụng Transaction để lưu Order và OrderItems ---
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -211,25 +146,6 @@ export class OrdersService {
 
       savedOrder = await queryRunner.manager.save(Order, newOrder); // Lưu order và items (do cascade: true)
       this.logger.log(`Đã lưu Order ID: ${savedOrder.id}`);
-
-      // !!! GỌI API GIẢM TỒN KHO BÊN TRONG TRANSACTION !!!
-      this.logger.log(`[${userId}] === BƯỚC 3: TRANSACTION - Giảm tồn kho ===`);
-      for (const update of productStockUpdates) {
-          const updateStockUrl = `${this.productServiceUrl}/products/${update.productId}/stock`;
-          try {
-              // Gọi API PATCH của product-service
-              await this.callService<any>(updateStockUrl, {
-                  method: 'PATCH', // <<< Dùng PATCH
-                  data: { change: update.quantityChange } // <<< Gửi { change: -số lượng }
-              });
-              this.logger.log(`[${userId}] Đã gửi yêu cầu giảm ${-update.quantityChange} tồn kho cho SP ${update.productId}`);
-          } catch (error) {
-              this.logger.error(`[${userId}] Lỗi nghiêm trọng khi gọi API giảm tồn kho SP ${update.productId}: ${error.message}`);
-              // Nếu lỗi ở đây, toàn bộ transaction phải rollback
-              throw new InternalServerErrorException(`Không thể cập nhật tồn kho cho sản phẩm ${update.productId}. Đơn hàng đã bị hủy.`);
-          }
-      }
-      // --- KẾT THÚC GỌI API GIẢM TỒN KHO ---
 
       // --- (Tùy chọn - Thách thức Đồng bộ) Giảm tồn kho ---
       // Nếu muốn giảm tồn kho ngay lập tức, cần gọi API product-service ở đây
@@ -404,7 +320,6 @@ export class OrdersService {
 // Tạo thêm 2 file interface để định nghĩa kiểu dữ liệu trả về từ service khác
 // src/interfaces/cart.interface.ts
 import { CartItem as ImportedCartItem } from './orders/interfaces/cart-item.interface';
-import { AxiosResponse } from 'axios';
 export interface Cart { userId: string; items: ImportedCartItem[]; }
 
 // src/interfaces/cart-item.interface.ts
