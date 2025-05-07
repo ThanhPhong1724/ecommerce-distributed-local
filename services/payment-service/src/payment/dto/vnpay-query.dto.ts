@@ -47,3 +47,4 @@ export class VnpayReturnQueryDto {
   @IsString() // SecureHash luôn được gửi và là bắt buộc
   vnp_SecureHash: string;
 }
+

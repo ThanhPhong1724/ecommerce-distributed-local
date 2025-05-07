@@ -175,13 +175,9 @@ services:
         condition: service_healthy # <<< Chờ DB healthy
       rabbitmq_queue:
         condition: service_healthy # <<< Chờ RabbitMQ healthy
-      cart_service: # Tên service phải khớp (dùng gạch dưới)
-        # Thêm healthcheck cho cart_service nếu muốn chờ nó sẵn sàng hoàn toàn
-        # condition: service_healthy
+      cart_service:
         condition: service_healthy # Tạm thời chỉ cần start
-      product_service: # Tên service phải khớp (dùng gạch dưới)
-        # Thêm healthcheck cho product_service nếu muốn chờ nó sẵn sàng hoàn toàn
-        # condition: service_healthy
+      product_service: 
         condition: service_healthy # Tạm thời chỉ cần start
     healthcheck: # <<< THÊM HEALTHCHECK
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3004/orders/health || exit 1"]

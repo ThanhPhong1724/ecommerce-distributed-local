@@ -72,15 +72,45 @@ export class PaymentController {
         }
     }
 
-    // Endpoint xử lý IPN từ VNPay (GET request)
-    @Get('vnpay_ipn')
-    async vnpayIpn(@Query() query: VnpayIpnQueryDto, @Res() res: Response) {
-        this.logger.log('VNPay IPN URL called with query:', query);
-        const result = await this.paymentService.handleVnpayIPN(query);
+    // src/payment/payment.controller.ts
+    // ... (các imports khác, constructor) ...
 
-        // Phản hồi lại cho VNPay server theo đúng định dạng yêu cầu
-        this.logger.log(`Responding to VNPay IPN: ${JSON.stringify(result)}`);
-        // Chỉ trả về mã và thông báo, không redirect
-        res.status(HttpStatus.OK).json(result);
+    @Get('vnpay_ipn')
+    async vnpayIpn(
+        @Query() query: VnpayIpnQueryDto, // Nếu bạn chưa thêm ValidationPipe, hãy xem xét.
+                                        // Nếu VnpayIpnQueryDto có class-validator decorators, NestJS sẽ tự động validate nếu có global pipe.
+        @Res() res: Response
+    ) {
+        this.logger.log(`[vnpayIpn] --- START --- IPN URL CALLED.`);
+        this.logger.log(`[vnpayIpn] Raw query parameters received: ${JSON.stringify(query)}`);
+
+        // Kiểm tra sơ bộ các tham số quan trọng (tùy chọn, vì DTO và ValidationPipe nên làm việc này)
+        if (!query.vnp_TxnRef || !query.vnp_ResponseCode || !query.vnp_SecureHash) {
+            this.logger.error('[vnpayIpn] Critical IPN parameters missing from query.');
+            // VNPAY yêu cầu trả về JSON ngay cả khi lỗi
+            return res.status(HttpStatus.BAD_REQUEST).json({ RspCode: '99', Message: 'Invalid IPN parameters: Missing required fields.' });
+        }
+
+        try {
+            this.logger.log(`[vnpayIpn] Calling paymentService.handleVnpayIPN for Order ID: ${query.vnp_TxnRef}`);
+            const result = await this.paymentService.handleVnpayIPN(query);
+            
+            this.logger.log(`[vnpayIpn] Result from paymentService.handleVnpayIPN: ${JSON.stringify(result)}`);
+            this.logger.log(`[vnpayIpn] Responding to VNPay IPN with RspCode: '${result.RspCode}', Message: '${result.Message}'`);
+
+            // Phản hồi lại cho VNPay server theo đúng định dạng yêu cầu
+            // Luôn trả về HTTP 200 OK, và nội dung JSON chứa RspCode, Message
+            return res.status(HttpStatus.OK).json(result);
+
+        } catch (error) {
+            this.logger.error(`[vnpayIpn] UNEXPECTED ERROR in controller while processing IPN for Order ID ${query.vnp_TxnRef || 'UNKNOWN'}: ${error.message}`, error.stack);
+            // Trả về lỗi chung cho VNPAY (họ có thể thử lại)
+            // Vẫn cố gắng trả về định dạng JSON mà VNPAY mong đợi
+            return res.status(HttpStatus.OK).json({ RspCode: '99', Message: 'Internal Server Error during IPN processing.' });
+        } finally {
+            this.logger.log(`[vnpayIpn] --- END --- IPN URL Processing for Order ID: ${query.vnp_TxnRef || 'UNKNOWN'}.`);
+        }
     }
+
+// ... (các hàm khác) ...
 }

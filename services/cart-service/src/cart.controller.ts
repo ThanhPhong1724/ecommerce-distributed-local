@@ -8,16 +8,17 @@ import { AuthGuard } from './cart/guards/auth.guard';
 import { User } from './cart/decorators/user.decorator';
 
 @Controller('cart')
-@UseGuards(AuthGuard)
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
   @Get()
+  @UseGuards(AuthGuard)
   async getCart(@User('userId') userId: string) {
     return this.cartService.getCart(userId);
   }
 
   @Post('items')
+  @UseGuards(AuthGuard)
   async addItem(
     @User('userId') userId: string,
     @Body(ValidationPipe) addItemDto: AddItemDto
@@ -26,6 +27,7 @@ export class CartController {
   }
 
   @Put('items/:productId')
+  @UseGuards(AuthGuard)
   async updateItem(
     @User('userId') userId: string,
     @Param('productId') productId: string,
@@ -39,6 +41,7 @@ export class CartController {
   }
 
   @Delete('items/:productId')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   async removeItem(
     @User('userId') userId: string,
@@ -48,6 +51,7 @@ export class CartController {
   }
 
   @Delete()
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async clearCart(@User('userId') userId: string) {
     await this.cartService.clearCart(userId);

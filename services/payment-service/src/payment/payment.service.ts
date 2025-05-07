@@ -132,54 +132,81 @@ export class PaymentService {
     return paymentUrl;
   }
 
-  // Xử lý Return URL (Code của bạn đã ổn)
-  handleVnpayReturn(query: VnpayReturnQueryDto): { code: string; message: string; orderId: string, status: OrderStatus, frontendReturnUrl: string } {
-    const { vnp_SecureHash: receivedSecureHash, ...paramsWithoutHash } = query; // <<<< SỬA Ở ĐÂY
-    const orderId = query.vnp_TxnRef;
+  // src/payment/payment.service.ts
+  // ... (các imports và constructor giữ nguyên) ...
 
-    this.logger.log(`[handleVnpayReturn] Received Order: ${orderId}, Received Hash: ${receivedSecureHash}`);
+  handleVnpayReturn(query: VnpayReturnQueryDto): { code: string; message: string; orderId: string; status: OrderStatus; frontendReturnUrl: string } {
+    this.logger.log(`[handleVnpayReturn] --- START --- Processing VNPAY RETURN for query: ${JSON.stringify(query)}`);
 
-    // paramsWithoutHash bây giờ là một object mới không chứa vnp_SecureHash
+    const { vnp_SecureHash: receivedSecureHash, ...paramsWithoutHash } = query;
+    const orderId = query.vnp_TxnRef; // Giả sử vnp_TxnRef là bắt buộc trong DTO và có giá trị
+
+    this.logger.log(`[handleVnpayReturn] Received Order ID: ${orderId}`);
+    this.logger.log(`[handleVnpayReturn] Received SecureHash: ${receivedSecureHash}`);
+    this.logger.debug(`[handleVnpayReturn] Params for signing (without hash): ${JSON.stringify(paramsWithoutHash)}`);
+
     const sortedParamsToSign = this.sortObject(paramsWithoutHash);
     const signData = new URLSearchParams(sortedParamsToSign).toString();
-    this.logger.log(`[handleVnpayReturn] Data for signing (Order ${orderId}): ${signData}`);
+    this.logger.log(`[handleVnpayReturn] String to sign (Order ID: ${orderId}): ${signData}`);
 
     const hmac = crypto.createHmac('sha512', this.vnp_HashSecret);
     const calculatedSignedHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
-    this.logger.log(`[handleVnpayReturn] Calculated Hash (Order ${orderId}): ${calculatedSignedHash}`);
+    this.logger.log(`[handleVnpayReturn] Calculated Hash (Order ID: ${orderId}): ${calculatedSignedHash}`);
 
-    let responseCode: string;
-    let message: string;
-    let status: OrderStatus = OrderStatus.FAILED;
+    let responseCodeResult: string; // Đổi tên biến để tránh nhầm lẫn với query.vnp_ResponseCode
+    let messageResult: string;
+    let statusResult: OrderStatus = OrderStatus.FAILED; // Khởi tạo mặc định là FAILED
 
     if (receivedSecureHash === calculatedSignedHash) {
-      this.logger.log(`[handleVnpayReturn] VNPay Return Hash VALID for Order: ${orderId}`);
-      if (query.vnp_ResponseCode === '00' && query.vnp_TransactionStatus === '00') {
-        responseCode = '00';
-        message = 'Giao dịch thành công';
-        status = OrderStatus.PROCESSING;
-        this.logger.log(`[handleVnpayReturn] VNPay Return báo thành công cho Order: ${orderId}`);
+      this.logger.log(`[handleVnpayReturn] VNPAY RETURN HASH VALID for Order ID: ${orderId}. Proceeding to check transaction status.`);
+
+      const vnpResponseCode = query.vnp_ResponseCode; // Lấy từ query
+      const vnpTransactionStatus = query.vnp_TransactionStatus; // Lấy từ query
+
+      this.logger.log(`[handleVnpayReturn] VNPay Response Code from query: '${vnpResponseCode}'`);
+      this.logger.log(`[handleVnpayReturn] VNPay Transaction Status from query: '${vnpTransactionStatus}'`);
+
+      if (vnpResponseCode === '00' && vnpTransactionStatus === '00') {
+        this.logger.log(`[handleVnpayReturn] Transaction SUCCESSFUL (Code 00, Status 00) for Order ID: ${orderId}.`);
+        responseCodeResult = '00';
+        messageResult = 'Giao dịch thành công';
+        statusResult = OrderStatus.PROCESSING; // Hoặc COMPLETED tùy theo logic của bạn
       } else {
-        responseCode = query.vnp_ResponseCode!; // Thêm '!' nếu bạn chắc chắn nó có, hoặc kiểm tra null/undefined
-        message = this.getVnpayMessage(query.vnp_ResponseCode!);
-        status = OrderStatus.FAILED;
-        this.logger.warn(`[handleVnpayReturn] VNPay Return báo thất bại cho Order: ${orderId}, Code: ${query.vnp_ResponseCode}`);
+        this.logger.warn(`[handleVnpayReturn] Transaction FAILED or PENDING (Code: ${vnpResponseCode}, Status: ${vnpTransactionStatus}) for Order ID: ${orderId}.`);
+        responseCodeResult = vnpResponseCode || '99'; // Nếu vnp_ResponseCode undefined, dùng mã lỗi chung
+        messageResult = this.getVnpayMessage(responseCodeResult);
+        statusResult = OrderStatus.FAILED;
       }
     } else {
-      this.logger.error(`[handleVnpayReturn] VNPay Return Hash INVALID for Order: ${orderId}. Received: ${receivedSecureHash}, Calculated: ${calculatedSignedHash}`);
-      responseCode = '97';
-      message = 'Chữ ký không hợp lệ';
-      status = OrderStatus.FAILED;
+      this.logger.error(`[handleVnpayReturn] VNPAY RETURN HASH INVALID for Order ID: ${orderId}. Received: ${receivedSecureHash}, Calculated: ${calculatedSignedHash}`);
+      responseCodeResult = '97'; // Mã lỗi VNPay: Sai chữ ký
+      messageResult = 'Chữ ký không hợp lệ';
+      statusResult = OrderStatus.FAILED;
     }
-    const frontendReturnUrl = `${this.frontend_url}/payment/result?orderId=${orderId}&code=${responseCode}&message=${encodeURIComponent(message)}`;
-    return { code: responseCode, message, orderId: orderId!, status, frontendReturnUrl }; // Thêm '!' cho orderId nếu cần
+
+    this.logger.log(`[handleVnpayReturn] Final determined status for Order ID ${orderId}: Code='${responseCodeResult}', Status='${statusResult}', Message='${messageResult}'.`);
+
+    const frontendReturnUrl = `${this.frontend_url}/payment/result?orderId=${orderId}&code=${responseCodeResult}&message=${encodeURIComponent(messageResult)}`;
+    this.logger.log(`[handleVnpayReturn] Constructed Frontend Return URL: ${frontendReturnUrl}`);
+
+    this.logger.log(`[handleVnpayReturn] --- END --- Processing VNPAY RETURN for Order ID: ${orderId}.`);
+    return {
+      code: responseCodeResult,
+      message: messageResult,
+      orderId: orderId!, // Thêm '!' nếu bạn chắc chắn orderId (vnp_TxnRef) luôn có từ DTO
+      status: statusResult,
+      frontendReturnUrl,
+    };
   }
 
+
+  
 // src/payment/payment.service.ts
 
 // ... (các imports khác, constructor, createPaymentUrl, handleVnpayReturn, sortObject, getVnpayMessage, parseVnpayDate) ...
 
 async handleVnpayIPN(query: VnpayIpnQueryDto): Promise<{ RspCode: string; Message: string }> {
+  this.logger.log(`[handleVnpayIPN] ******** SERVICE FUNCTION ENTERED (NEW CODE) ********`); // 
   // Sử dụng destructuring để tách vnp_SecureHash và các params còn lại
   const { vnp_SecureHash: receivedSecureHash, ...paramsWithoutHash } = query;
 
@@ -285,18 +312,13 @@ async handleVnpayIPN(query: VnpayIpnQueryDto): Promise<{ RspCode: string; Messag
       errorCode: rspCode, // Mã lỗi từ VNPay
       errorMessage: this.getVnpayMessage(rspCode!), // Thêm '!' nếu rspCode chắc chắn là string
     };
-
+    const eventPattern = 'payment_processed'; // <<< SỬ DỤNG PATTERN MÀ ORDER SERVICE LẮNG NGHE
     try {
-      // this.logger.log(`[handleVnpayIPN] Publishing 'payment_processed' event for Order ID ${orderId}: ${JSON.stringify(eventPayload)}`);
-      // this.rabbitClient.emit('payment_processed', eventPayload);
-      const ordersServiceQueueName = 'orders_queue'; // Lấy từ config hoặc hardcode nếu cố định
-      this.logger.log(`[handleVnpayIPN] Emitting event to queue '${ordersServiceQueueName}' for Order ID ${orderId}`);
-      this.rabbitClient.emit<string, any>(ordersServiceQueueName, eventPayload);
-
-      // Không cần await nếu đây là thông báo và không cần chờ kết quả
+      this.logger.log(`[handleVnpayIPN] Preparing to emit event with PATTERN '${eventPattern}' for Order ID ${orderId}. Payload: ${JSON.stringify(eventPayload)}`);
+      this.rabbitClient.emit<string, any>(eventPattern, eventPayload); // <<< EMIT THEO PATTERN
+      this.logger.log(`[handleVnpayIPN] Successfully emitted event with PATTERN '${eventPattern}' for Order ID ${orderId}.`);
     } catch (rabbitError) {
-      this.logger.error(`[handleVnpayIPN] Error publishing 'payment_processed' event for Order ${orderId}: ${rabbitError.message}`, rabbitError.stack);
-      // Lỗi này không nên ngăn cản việc trả lời VNPay, nhưng cần được log và theo dõi.
+      this.logger.error(`[handleVnpayIPN] Error emitting event with PATTERN '${eventPattern}' for Order ID ${orderId}: ${rabbitError.message}`, rabbitError.stack);
     }
 
     // --- Trả kết quả thành công cho VNPay để họ không gửi IPN lại ---

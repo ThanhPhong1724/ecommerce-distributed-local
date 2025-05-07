@@ -20,7 +20,7 @@ interface PaymentProcessedPayload {
 
 @UseInterceptors(ClassSerializerInterceptor) // <<< THÊM INTERCEPTOR
 @Controller('orders')
-@UseGuards(AuthGuard) // Add AuthGuard to protect all routes
+
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
   private readonly logger = new Logger(OrdersController.name); // <<<< THÊM LOGGER
@@ -76,12 +76,14 @@ export class OrdersController {
   }
 
   @Get()
+  @UseGuards(AuthGuard) 
   async findAll(@Request() req): Promise<OrderDto[]> { // <<< Sửa kiểu trả về
     const userId = this.getUserIdFromRequest(req);
     return this.ordersService.findAllForUser(userId);
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard) 
   async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string): Promise<OrderDto> { // <<< Sửa kiểu trả về
     const userId = this.getUserIdFromRequest(req);
     return this.ordersService.findOne(id, userId);
@@ -90,9 +92,12 @@ export class OrdersController {
   // --- MESSAGE HANDLER CHO RABBITMQ ---
   @MessagePattern('payment_processed') // <<<< LẮNG NGHE SỰ KIỆN 'payment_processed'
   async handlePaymentProcessed(
-    @Payload() data: PaymentProcessedPayload, // Dữ liệu từ PaymentService
+    @Payload() data: any, // Dùng any để test
+    // @Payload() data: PaymentProcessedPayload, // Dữ liệu từ PaymentService
     @Ctx() context: RmqContext, // Context của RabbitMQ (chứa message gốc, channel)
   ): Promise<void> {
+    this.logger.log(`[handlePaymentProcessed] ******** CONTROLLER HANDLER ENTERED (RAW DATA) ********`);
+    this.logger.log(`[handlePaymentProcessed] Raw Payload: ${JSON.stringify(data)}`);
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
     this.logger.log(`[handlePaymentProcessed] Received 'payment_processed' event for Order ID: ${data.orderId}`);

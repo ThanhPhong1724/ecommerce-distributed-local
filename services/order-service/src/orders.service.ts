@@ -255,15 +255,38 @@ export class OrdersService {
     return order;
   }
 
-   // Thêm hàm cập nhật status (ví dụ khi payment thành công)
-   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
-      const order = await this.orderRepository.findOneBy({ id: orderId });
-      if (!order) {
-          throw new NotFoundException(`Đơn hàng với ID ${orderId} không tìm thấy.`);
-      }
-      order.status = status;
-      return this.orderRepository.save(order);
-   }
+  // Thêm hàm cập nhật status (ví dụ khi payment thành công)
+  // async updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
+  //   const order = await this.orderRepository.findOneBy({ id: orderId });
+  //   if (!order) {
+  //       throw new NotFoundException(`Đơn hàng với ID ${orderId} không tìm thấy.`);
+  //   }
+  //   order.status = status;
+  //   return this.orderRepository.save(order);
+  // }
+
+  // Trong orders.service.ts
+  async updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order | undefined> { // Hoặc kiểu trả về phù hợp
+    this.logger.log(`[updateOrderStatus] Attempting to update order ${orderId} to status ${status}`);
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      this.logger.error(`[updateOrderStatus] Order with ID ${orderId} not found.`);
+      // Có thể ném lỗi hoặc xử lý tùy theo logic của bạn
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+    this.logger.log(`[updateOrderStatus] Found order ${orderId}, current status: ${order.status}`);
+    order.status = status;
+    // Thêm các cập nhật khác nếu cần, ví dụ: paymentTransactionId, paymentTime
+    try {
+      const updatedOrder = await this.orderRepository.save(order);
+      this.logger.log(`[updateOrderStatus] Successfully saved order ${orderId} with new status ${updatedOrder.status}`);
+      return updatedOrder;
+    } catch (error) {
+      this.logger.error(`[updateOrderStatus] Failed to save order ${orderId} with new status: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
 }
 
 // Tạo thêm 2 file interface để định nghĩa kiểu dữ liệu trả về từ service khác

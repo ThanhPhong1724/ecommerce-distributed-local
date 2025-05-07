@@ -160,3 +160,7 @@ Số thẻ: 9704198526191432198
 Tên chủ thẻ:NGUYEN VAN A
 Ngày phát hành:07/15
 Mật khẩu OTP:123456
+
+docker-compose down
+docker-compose build payment_service # Build lại payment_service
+docker-compose up -d
