@@ -9,6 +9,8 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import VnPayReturnPage from './pages/VnPayReturnPage';
 import OrderDetailPage from './pages/OrderDetailPage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
+import ProductDetailPage from './pages/ProductDetailPage';
 import Navbar from './components/Navbar';
 
 const App: React.FC = () => {
@@ -25,6 +27,8 @@ const App: React.FC = () => {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/payment/result" element={<VnPayReturnPage />} />
           <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+          <Route path="/orders/history" element={<OrderHistoryPage />} />
+          <Route path="/products/:id" element={<ProductDetailPage />} />
           <Route path="*" element={<h1>404 Not Found</h1>} /> {/* Route cho trang không tồn tại */}
         </Routes>
       </div>

@@ -102,3 +102,24 @@ export const getOrderDetails = async (orderId: string): Promise<OrderDetail> => 
     throw error;
   }
 };
+
+// Thêm interface cho danh sách đơn hàng
+export interface OrderListItem {
+  id: string;
+  status: string;
+  totalAmount: string;
+  createdAt: string;
+  shippingAddress: string;
+  itemCount: number;
+}
+
+// Thêm hàm lấy danh sách đơn hàng
+export const getOrders = async (): Promise<OrderListItem[]> => {
+  try {
+    const response = await apiClient.get<OrderListItem[]>('/orders');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    throw error;
+  }
+};

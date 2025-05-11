@@ -8,19 +8,33 @@ export interface Product {
   description: string;
   price: number;
   stockQuantity: number;
-  imageUrl: string; // Giả sử có trường này
-  category?: { id: string; name: string }; // Category có thể có hoặc không
-  createdAt: string | Date;
-  updatedAt: string | Date;
+  imageUrl: string; // Frontend sẽ sử dụng imageUrl
+  categoryId: string;
 }
 
 export const getProducts = async (): Promise<Product[]> => {
   try {
-    const response = await apiClient.get<Product[]>('/products'); // Gọi đến /api/products
-    return response.data;
+    const response = await apiClient.get<any[]>('/products');
+    return response.data.map(product => ({
+      ...product,
+      imageUrl: product.img // Map từ img sang imageUrl
+    }));
   } catch (error) {
-    console.error("Lỗi khi lấy danh sách sản phẩm:", error);
-    throw error; // Ném lỗi để component xử lý
+    console.error('Error fetching products:', error);
+    throw error;
+  }
+};
+
+export const getProductById = async (id: string): Promise<Product> => {
+  try {
+    const response = await apiClient.get<any>(`/products/${id}`);
+    return {
+      ...response.data,
+      imageUrl: response.data.img // Map từ img sang imageUrl
+    };
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    throw error;
   }
 };
 

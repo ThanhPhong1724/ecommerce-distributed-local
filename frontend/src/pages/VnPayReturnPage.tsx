@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext'; // Đảm bảo đường dẫn này đúng
+import { getOrderDetails } from '../services/orderApi'; // Thêm import này
 
 const VnPayReturnPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -15,59 +16,43 @@ const VnPayReturnPage: React.FC = () => {
   useEffect(() => {
     const processPaymentResult = async () => {
       try {
-        // Backend của bạn redirect về với các tham số là 'code', 'orderId', và 'message'
         const codeParam = searchParams.get('code');
         const orderIdParam = searchParams.get('orderId');
-        const messageParam = searchParams.get('message'); // Message đã được encodeURIComponent bởi backend
-
-        console.log('VnPayReturnPage - Received URL params:', {
-          code: codeParam,
-          orderId: orderIdParam,
-          message: messageParam ? decodeURIComponent(messageParam) : null,
-        });
+        const messageParam = searchParams.get('message');
 
         if (orderIdParam) {
           setDisplayOrderId(orderIdParam);
-        }
-
-        if (codeParam === '00') {
-          // Thanh toán thành công
-          setMessage(
-            messageParam
-              ? decodeURIComponent(messageParam)
-              : `Thanh toán thành công cho đơn hàng #${orderIdParam}! Cảm ơn bạn đã mua sắm.`
-          );
-          setIsSuccess(true);
-          if (typeof clearCart === 'function') { // Kiểm tra xem clearCart có phải là hàm không
-            await clearCart(); // Xóa giỏ hàng
-            console.log('Cart cleared after successful payment.');
-          } else {
-            console.warn('clearCart function is not available from CartContext.');
+          
+          // Thêm phần này để cập nhật trạng thái đơn hàng
+          try {
+            const orderDetails = await getOrderDetails(orderIdParam);
+            console.log('Updated order status:', orderDetails.status);
+            
+            // Nếu thanh toán thành công
+            if (codeParam === '00') {
+              setIsSuccess(true);
+              setMessage('Thanh toán thành công!');
+              if (typeof clearCart === 'function') {
+                await clearCart();
+              }
+            } else {
+              setIsSuccess(false);
+              setMessage(messageParam ? decodeURIComponent(messageParam) : 'Thanh toán thất bại');
+            }
+          } catch (orderError) {
+            console.error('Error fetching order details:', orderError);
+            setMessage('Không thể cập nhật trạng thái đơn hàng');
           }
-          localStorage.removeItem('pendingOrderId'); // Xóa orderId đang chờ (nếu có)
-        } else if (codeParam) {
-          // Thanh toán thất bại hoặc có mã lỗi khác
-          setMessage(
-            messageParam
-              ? decodeURIComponent(messageParam)
-              : `Thanh toán thất bại cho đơn hàng #${orderIdParam || 'không xác định'}. Mã lỗi: ${codeParam}. Vui lòng thử lại hoặc liên hệ hỗ trợ.`
-          );
-          setIsSuccess(false);
-        } else {
-          // Không có 'code' trong URL params, có thể URL không đúng
-          setMessage('Không nhận được thông tin kết quả thanh toán hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ hỗ trợ.');
-          setIsSuccess(false);
-          console.warn('VnPayReturnPage: Missing "code" parameter in URL.');
         }
       } catch (error) {
-        console.error('VnPayReturnPage - Error processing payment result:', error);
-        setMessage('Có lỗi xảy ra trong quá trình xử lý kết quả thanh toán. Vui lòng liên hệ hỗ trợ.');
+        console.error('Payment processing error:', error);
+        setMessage('Có lỗi xảy ra khi xử lý thanh toán');
         setIsSuccess(false);
       }
     };
 
     processPaymentResult();
-  }, [searchParams, clearCart]); // Thêm clearCart vào dependency array của useEffect
+  }, [searchParams, clearCart]);
 
   return (
     <div className="payment-result-container">

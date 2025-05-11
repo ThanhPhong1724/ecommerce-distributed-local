@@ -1,0 +1,24 @@
+// tailwind.config.js
+/** @type {import('tailwindcss').Config} */
+const defaultTheme = require('tailwindcss/defaultTheme');
+
+module.exports = {
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+    "./public/index.html"
+  ],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', ...defaultTheme.fontFamily.sans],
+      },
+      colors: {
+        'brand-primary': '#3B82F6',
+        'brand-secondary': '#EC4899',
+        'brand-dark': '#111827',
+        'brand-light': '#F9FAFB',
+      }
+    },
+  },
+  plugins: [],
+}

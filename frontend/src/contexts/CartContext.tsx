@@ -1,5 +1,6 @@
 // src/contexts/CartContext.tsx
-import React, { createContext, useReducer, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useReducer, useContext, useEffect, useCallback, useState } from 'react';
+import { debounce } from 'lodash';
 import { addItemToCart, getCart, removeItemFromCart, updateCartItemQuantity, clearCartApi } from '../services/cartApi'; // API calls
 import { useAuth } from './AuthContext'; // Lấy thông tin user
 
@@ -88,29 +89,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(cartReducer, initialState);
   const { state: authState } = useAuth();
 
-  const fetchCart = useCallback(async () => {
-    if (!authState.isAuthenticated) {
-      dispatch({ type: 'LOAD_CART_SUCCESS', payload: [] });
-      return;
-    }
-    dispatch({ type: 'LOAD_CART_START' });
-    try {
-      const cartData = await getCart();
-      dispatch({ type: 'LOAD_CART_SUCCESS', payload: cartData.items });
-    } catch (error: any) {
-      dispatch({ type: 'LOAD_CART_FAILURE', payload: error.message || 'Lỗi tải giỏ hàng' });
-    }
-  }, [authState.isAuthenticated]); // Dependency: authState.isAuthenticated
+  // Thêm flag để tránh fetch nhiều lần
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const debouncedFetchCart = useCallback(
+    debounce(async () => {
+      if (!authState.isAuthenticated) {
+        dispatch({ type: 'LOAD_CART_SUCCESS', payload: [] });
+        return;
+      }
+      dispatch({ type: 'LOAD_CART_START' });
+      try {
+        const cartData = await getCart();
+        dispatch({ type: 'LOAD_CART_SUCCESS', payload: cartData.items });
+      } catch (error: any) {
+        dispatch({ type: 'LOAD_CART_FAILURE', payload: error.message || 'Lỗi tải giỏ hàng' });
+      }
+    }, 300),
+    [authState.isAuthenticated]
+  );
+
+  // Wrapper to ensure return type is always Promise<void>
+  const fetchCart = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      debouncedFetchCart();
+      resolve();
+    });
+  }, [debouncedFetchCart]);
 
   useEffect(() => {
-    if (authState.isAuthenticated) {
-      console.log("User is authenticated, fetching cart...");
+    if (authState.isAuthenticated && isInitialLoad) {
+      setIsInitialLoad(false);
       fetchCart();
-    } else {
-      console.log("User not authenticated, clearing local cart state.");
-      dispatch({ type: 'LOAD_CART_SUCCESS', payload: [] });
     }
-  }, [fetchCart, authState.isAuthenticated]);
+  }, [fetchCart, authState.isAuthenticated, isInitialLoad]);
 
   const addToCart = useCallback(async (productId: string, quantity: number) => {
     if (!authState.isAuthenticated) throw new Error("Bạn cần đăng nhập để thêm vào giỏ hàng");

@@ -118,8 +118,8 @@ export class OrdersService {
       throw new BadRequestException('Giỏ hàng trống, không thể tạo đơn hàng.');
     }
 
-    // --- 2. KIỂM TRA TỒN KHO TRƯỚC TRANSACTION ---
-    this.logger.log(`[${userId}] === BƯỚC 1: KIỂM TRA TỒN KHO ===`);
+    // --- 2. KIỂM TRA TỒN KHO VÀ CHUẨN BỊ DỮ LIỆU ĐƠN HÀNG ---
+    this.logger.log(`[${userId}] === BƯỚC 2: KIỂM TRA TỒN KHO VÀ CHUẨN BỊ DỮ LIỆU ===`); // Đổi tên bước cho rõ ràng
     const orderItemsData: Partial<OrderItem>[] = [];
     const productStockUpdates: { productId: string; quantityChange: number }[] = [];
     let totalAmount = 0;
@@ -142,7 +142,7 @@ export class OrdersService {
           productId: item.productId,
           quantity: item.quantity,
           price: product.price, // Lưu giá tại thời điểm đặt hàng
-          productName: product.name, // Lưu tên tại thời điểm đặt hàng
+          productName: product.name || 'Unknown Product', // Xử lý trường hợp tên SP null
         });
         productStockUpdates.push({ productId: item.productId, quantityChange: -item.quantity }); // quantityChange là số âm
 
@@ -155,41 +155,6 @@ export class OrdersService {
     }
     this.logger.log(`[${userId}] === KẾT THÚC KIỂM TRA TỒN KHO === OK. Tổng tiền: ${totalAmount}`);
     // --- KẾT THÚC BƯỚC 2 ---
-
-    // --- 2. Kiểm tra thông tin sản phẩm và tồn kho từ product-service ---
-    // let totalAmount = 0;
-    // const orderItemsData: Partial<OrderItem>[] = []; // Mảng chứa dữ liệu item để tạo
-
-    this.logger.log('Kiểm tra thông tin sản phẩm và tồn kho...');
-    for (const item of cart.items) {
-      let product: ProductInterface;
-      try {
-        product = await this.callService<ProductInterface>(`${this.productServiceUrl}/products/${item.productId}`);
-      } catch (error) {
-         this.logger.error(`Không thể lấy thông tin sản phẩm ${item.productId}: ${error.message}`);
-         throw new BadRequestException(`Sản phẩm với ID ${item.productId} không tồn tại hoặc không hợp lệ.`);
-      }
-
-
-      if (product.stockQuantity < item.quantity) {
-        throw new BadRequestException(`Sản phẩm "${product.name}" không đủ số lượng tồn kho (cần ${item.quantity}, còn ${product.stockQuantity}).`);
-      }
-
-      // Tính tổng tiền và chuẩn bị dữ liệu item
-      const itemPrice = product.price * item.quantity;
-      totalAmount += itemPrice;
-      orderItemsData.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: product.price, // Lưu giá tại thời điểm đặt hàng
-        productName: product.name, // Lưu tên tại thời điểm đặt hàng
-      });
-    }
-    this.logger.log(`Tổng tiền đơn hàng dự kiến: ${totalAmount}`);
-
-    // --- KẾT THÚC BƯỚC 2 ---
-
-
     // --- 3. Sử dụng Transaction để lưu Order và OrderItems ---
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -257,23 +222,23 @@ export class OrdersService {
 
     // --- 4. (Quan trọng) Xóa giỏ hàng sau khi tạo đơn thành công ---
     try {
-        this.logger.log(`Xóa giỏ hàng cho user: ${userId}`);
-        // Giả sử cart-service có endpoint DELETE /cart/:userId
-        await firstValueFrom(
-            // !!! KIỂM TRA LẠI URL VÀ PHƯƠNG THỨC Ở ĐÂY !!!
-            this.httpService.delete(`${this.cartServiceUrl}/cart/${userId}`).pipe( // <<< Có thể URL hoặc phương thức này không đúng
-                 catchError((error) => {
-                    // Log lỗi nhưng không nên fail cả đơn hàng vì bước này
-                    this.logger.error(`Lỗi khi xóa giỏ hàng user ${userId} sau khi tạo đơn ${savedOrder.id}: ${error.message}`);
-                    // Không rethrow lỗi ở đây
-                    throw error; // Hoặc có thể throw để biết lỗi
-                 })
-            )
-        );
-        this.logger.log(`Đã gửi yêu cầu xóa giỏ hàng cho user: ${userId}`); // Thêm log này để xác nhận
+      this.logger.log(`Xóa giỏ hàng cho user: ${userId} sau khi tạo đơn ${savedOrder.id}`);
+      // Thay vì /cart/:userId, CartService có endpoint DELETE /cart (không có param userId trong path, userId lấy từ token)
+      await this.callService<void>(`${this.cartServiceUrl}/cart`, { // <<< SỬA URL VÀ KHÔNG CẦN TRUYỀN USERID TRONG PATH
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${userToken}` // <<< TRUYỀN TOKEN ĐỂ CART SERVICE BIẾT USER NÀO
+          }
+      });
+      this.logger.log(`Đã gửi yêu cầu xóa giỏ hàng cho user: ${userId}`);
     } catch (error) {
-        // Xử lý lỗi xóa giỏ hàng nếu cần, nhưng đơn hàng đã được tạo
-        this.logger.error(`Không thể gửi yêu cầu xóa giỏ hàng cho user ${userId}: ${error.message}`);
+        // Kiểm tra nếu lỗi là 404 từ CartService thì có thể bỏ qua (giỏ hàng có thể đã được xóa bởi một cơ chế khác)
+        if (error instanceof HttpException && error.getStatus() === HttpStatus.NOT_FOUND) {
+            this.logger.warn(`Không tìm thấy giỏ hàng user ${userId} để xóa (có thể đã được xóa): ${error.message}`);
+        } else {
+            this.logger.error(`Lỗi khi gửi yêu cầu xóa giỏ hàng cho user ${userId}: ${error.message}`, error instanceof Error ? error.stack : '');
+            // Không nên rethrow lỗi ở đây để tránh fail cả flow nếu đơn hàng đã tạo thành công
+        }
     }
 
       // --- 5. Publish sự kiện 'order.created' LÊN DEFAULT EXCHANGE ---

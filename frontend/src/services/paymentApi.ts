@@ -8,6 +8,7 @@ interface CreatePaymentUrlPayload {
   orderDescription: string;
   bankCode?: string;
   language?: string;
+  vnp_ResponseCode?: string; // Thêm trường này
 }
 
 // Interface cho dữ liệu trả về (chứa URL)

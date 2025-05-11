@@ -71,6 +71,10 @@ const CheckoutPage: React.FC = () => {
         price: Number(item.price || 0)
       }));
 
+      // Thêm logging để debug
+      console.log('Cart items before order:', cartState.items);
+      console.log('Order items being sent:', orderItems);
+      
       // Kiểm tra dữ liệu
       const invalidItems = orderItems.filter(item => 
         !item.productId || 
