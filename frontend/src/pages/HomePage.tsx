@@ -1,57 +1,146 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { getProducts } from '../services/productApi';
 import { Link } from 'react-router-dom';
 import Slider from 'react-slick';
 import { motion } from 'framer-motion';
 import AOS from 'aos';
+import { FiArrowRight, FiShoppingBag, FiTruck, FiShield, FiCreditCard } from 'react-icons/fi';
+import { FaFacebookF, FaInstagram, FaTwitter } from 'react-icons/fa';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "aos/dist/aos.css";
 
-// Ví dụ: import icon nếu cần
-// import { ChevronRightIcon } from '@heroicons/react/solid';
+import summerCollectionImg from "../assets/images/hero/summer-collection.jpg";
+import winterCollectionImg from "../assets/images/hero/winter-collection.jpg";
+import accessoriesImg from "../assets/images/hero/accessories.jpg";
+
+// Import images for categories
+import topsImg from "../assets/images/categories/tops.jpg";
+import pantsImg from "../assets/images/categories/pants.jpg";
+import dressesImg from "../assets/images/categories/dresses.jpg";
+import accessoriesCatImg from "../assets/images/categories/accessories.jpg";
+
+// Import images for products
+// import basicTeeImg from "../assets/images/products/basic-tee.jpg";
+// import slimJeansImg from "../assets/images/products/slim-jeans.jpg";
+import './../assets/styles/HomePage.css';
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  stockQuantity: number;
+  imageUrl: string;
+  categoryId: string;
+  discount?: number;
+  originalPrice?: number;
+}
+
+const ProductSliderArrow = ({ direction, onClick }: { direction: 'prev' | 'next'; onClick?: () => void }) => (
+  <button
+    onClick={onClick}
+    className={`
+      absolute top-1/2 z-10 -translate-y-1/2
+      ${direction === 'prev' ? 'left-2 md:-left-5' : 'right-2 md:-right-5'}
+      w-10 h-10 rounded-full
+      bg-white shadow-lg hover:shadow-xl
+      flex items-center justify-center
+      text-gray-600 hover:text-brand-primary
+      transition-all duration-200
+      focus:outline-none focus:ring-2 focus:ring-brand-primary
+      group
+    `}
+    aria-label={direction === 'prev' ? 'Previous' : 'Next'}
+  >
+    <FiArrowRight 
+      className={`w-5 h-5 ${direction === 'prev' ? 'rotate-180' : ''} 
+      transition-transform group-hover:scale-110`} 
+    />
+  </button>
+);
 
 const heroSlides = [
   {
-    image: "https://down-vn.img.susercontent.com/file/vn-11134207-7qukw-lf9yjzslq49u38",
-    title: "Thời Trang Phong Cách",
-    description: "Bộ sưu tập mùa hè 2025",
+    image: summerCollectionImg,
+    title: "Bộ Sưu Tập Hè 2025",
+    description: "Khám phá những xu hướng mới nhất với thiết kế độc đáo",
     buttonText: "Khám Phá Ngay",
     buttonLink: "/products?collection=summer-2025"
   },
   {
-    image: "https://down-vn.img.susercontent.com/file/cn-11134207-7r98o-loxc0qdd6v2v67.webp",
-    title: "Xu Hướng Mới Nhất",
-    description: "Khám phá các mẫu áo khoác thời thượng",
-    buttonText: "Xem Áo Khoác",
+    image: winterCollectionImg,
+    title: "BST Áo Khoác Mới",
+    description: "Những mẫu áo khoác thời thượng nhất mùa này",
+    buttonText: "Xem Bộ Sưu Tập",
     buttonLink: "/products?category=jackets"
   },
-  // Thêm nhiều slides khác
+  {
+    image: accessoriesImg,
+    title: "Phụ Kiện Cao Cấp",
+    description: "Hoàn thiện phong cách của bạn",
+    buttonText: "Mua Sắm Ngay",
+    buttonLink: "/products?category=accessories"
+  }
 ];
 
 const categories = [
   {
     name: "Áo",
-    image: "https://down-vn.img.susercontent.com/file/cn-11134207-7r98o-loxc0qddchcna6.webp",
-    link: "/products?category=ao"
+    image: topsImg,
+    link: "/products?category=ao",
+    color: "from-blue-500 to-blue-700"
   },
   {
     name: "Quần",
-    image: "https://down-vn.img.susercontent.com/file/cn-11134207-7r98o-loxc0qdd89nb2c.webp",
-    link: "/products?category=quan"
+    image: pantsImg,
+    link: "/products?category=quan",
+    color: "from-green-500 to-green-700"
   },
   {
     name: "Váy",
-    image: "https://images.unsplash.com/photo-1595905980087-appyc1dba9a8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8MTB8fGRyZXNzfGVufDB8fDB8fA%3D%3D&auto=format&fit=crop&w=500&q=60", // Thay ảnh thật
-    link: "/products?category=vay"
+    image: dressesImg,
+    link: "/products?category=vay",
+    color: "from-purple-500 to-purple-700"
   },
   {
-    name: "Phụ Kiện",
-    image: "https://images.unsplash.com/photo-1511556532299-8f662fc26c06?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8Mnx8YWNjZXNzb3JpZXN8ZW58MHx8MHx8&auto=format&fit=crop&w=500&q=60", // Thay ảnh thật
-    link: "/products?category=phu-kien"
+    name: "Phụ Kiện", 
+    image: accessoriesCatImg,
+    link: "/products?category=phu-kien",
+    color: "from-red-500 to-red-700"
   }
 ];
 
-// Bạn nên tạo interface/type cho sản phẩm nổi bật
+const features = [
+  {
+    icon: <FiTruck className="w-6 h-6" />,
+    title: "Miễn phí vận chuyển",
+    description: "Cho đơn hàng từ 499k"
+  },
+  {
+    icon: <FiShield className="w-6 h-6" />,
+    title: "Bảo hành 30 ngày",
+    description: "Đổi trả dễ dàng"
+  },
+  {
+    icon: <FiCreditCard className="w-6 h-6" />,
+    title: "Thanh toán an toàn",
+    description: "Bảo mật thông tin"
+  },
+  {
+    icon: <FiShoppingBag className="w-6 h-6" />,
+    title: "Quà tặng hấp dẫn",
+    description: "Cho thành viên VIP"
+  }
+];
+
+interface Category {
+  name: string;
+  image: string;
+  link: string;
+  color: string;
+}
+
 interface FeaturedProduct {
   id: string;
   name: string;
@@ -59,62 +148,125 @@ interface FeaturedProduct {
   price: number;
   oldPrice?: number;
   link: string;
+  tag?: string;
+  badgeColor?: string;
 }
 
-const featuredProducts: FeaturedProduct[] = [
-  { id: '1', name: 'Áo Thun Basic Cotton', image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8Mnx8dCUyMHNoaXJ0fGVufDB8fDB8fA%3D%3D&auto=format&fit=crop&w=500&q=60', price: 250000, link: '/products/ao-thun-basic' },
-  { id: '2', name: 'Quần Jeans Slimfit', image: 'https://images.unsplash.com/photo-1602293589930-4535de560201?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8amVhbnN8ZW58MHx8MHx8&auto=format&fit=crop&w=500&q=60', price: 550000, oldPrice: 650000, link: '/products/quan-jeans-slimfit' },
-  // Thêm sản phẩm
-];
+const CustomArrow = ({ direction, onClick }: { direction: 'prev' | 'next'; onClick?: () => void }) => (
+  <button
+    onClick={onClick}
+    className={`absolute top-1/2 z-10 -translate-y-1/2 ${
+      direction === 'prev' ? 'left-4' : 'right-4'
+    } w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all duration-200 flex items-center justify-center text-white`}
+  >
+    <FiArrowRight className={`w-6 h-6 ${direction === 'prev' ? 'rotate-180' : ''}`} />
+  </button>
+);
+
+const sliderSettings = {
+  dots: true,
+  infinite: true,
+  speed: 700,
+  slidesToShow: 1,
+  slidesToScroll: 1,
+  autoplay: true,
+  autoplaySpeed: 5000,
+  fade: true,
+  cssEase: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  pauseOnHover: true,
+  arrows: true,
+  prevArrow: <CustomArrow direction="prev" />,
+  nextArrow: <CustomArrow direction="next" />,
+  appendDots: (dots: React.ReactNode) => (
+    <div style={{ position: 'absolute', bottom: '2rem' }}>
+      <ul className="flex justify-center gap-2">{dots}</ul>
+    </div>
+  ),
+  customPaging: () => (
+    <button className="w-3 h-3 rounded-full bg-white/50 hover:bg-white transition-colors duration-200" />
+  ),
+  responsive: [
+    {
+      breakpoint: 768,
+      settings: {
+        arrows: false
+      }
+    }
+  ]
+};
 
 const HomePage: React.FC = () => {
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     AOS.init({
-      duration: 800, // Giảm nhẹ duration
+      duration: 800,
       once: true,
-      offset: 50, // Điều chỉnh offset để animation kích hoạt sớm hơn một chút
+      offset: 50,
     });
-    // Refresh AOS on route change if needed, or when new content loads
-    // AOS.refresh();
+
+    const fetchProducts = async () => {
+      try {
+        const products = await getProducts();
+        setFeaturedProducts(products.slice(0, 8)); // Lấy 8 sản phẩm đầu tiên
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
   }, []);
 
-  const sliderSettings = {
-    dots: true,
+  const sectionTitleClasses = "text-3xl sm:text-4xl font-bold text-center text-gray-800 mb-12";
+
+  const productSliderSettings = {
+    dots: false,
     infinite: true,
-    speed: 700, // Tăng tốc độ chuyển slide
-    slidesToShow: 1,
+    speed: 500,
+    slidesToShow: 4,
     slidesToScroll: 1,
     autoplay: true,
-    autoplaySpeed: 4000, // Tăng thời gian hiển thị mỗi slide
-    fade: true, // Thêm hiệu ứng fade
-    cssEase: 'linear',
-    pauseOnHover: true,
-    arrows: false, // Ẩn nút next/prev mặc định, có thể custom sau
+    autoplaySpeed: 3000,
+    arrows: true,
+    prevArrow: <ProductSliderArrow direction="prev" />,
+    nextArrow: <ProductSliderArrow direction="next" />,
     responsive: [
-        {
-            breakpoint: 768, // Dưới 768px
-            settings: {
-                // arrows: false, // Có thể hiện arrows cho mobile nếu muốn
-            }
+      {
+        breakpoint: 1024,
+        settings: {
+          slidesToShow: 3,
         }
+      },
+      {
+        breakpoint: 768,
+        settings: {
+          slidesToShow: 2,
+        }
+      },
+      {
+        breakpoint: 640,
+        settings: {
+          slidesToShow: 1,
+        }
+      }
     ]
   };
 
-  const sectionTitleClasses = "text-3xl sm:text-4xl font-bold text-center text-gray-800 mb-12";
-  const cardBaseClasses = "relative group overflow-hidden rounded-lg shadow-lg transition-all duration-300 ease-in-out hover:shadow-2xl";
-
   return (
-    <div className="min-h-screen bg-brand-light">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <section className="relative">
         <Slider {...sliderSettings}>
           {heroSlides.map((slide, index) => (
-            <div key={index} className="relative h-[calc(100vh-4rem)] min-h-[400px] max-h-[700px]"> {/* Chiều cao linh hoạt, 4rem là chiều cao Navbar */}
+            <div key={index} className="relative h-[calc(100vh-4rem)] min-h-[400px] max-h-[700px]">
               <img
                 src={slide.image}
                 alt={slide.title}
                 className="w-full h-full object-cover"
-                loading={index === 0 ? "eager" : "lazy"} // Ưu tiên tải ảnh slide đầu
+                loading={index === 0 ? "eager" : "lazy"}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent flex flex-col justify-end items-center text-center p-6 sm:p-12">
                 <div className="text-white max-w-2xl">
@@ -144,7 +296,6 @@ const HomePage: React.FC = () => {
                       className="bg-brand-primary text-white px-6 py-3 sm:px-8 sm:py-3 rounded-full font-semibold text-sm sm:text-base hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 focus:ring-offset-black/50 transition duration-300 inline-flex items-center group"
                     >
                       {slide.buttonText}
-                      {/* <ChevronRightIcon className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" /> */}
                       <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
                     </Link>
                   </motion.div>
@@ -155,105 +306,225 @@ const HomePage: React.FC = () => {
         </Slider>
       </section>
 
-      {/* Danh mục nổi bật */}
-      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <h2 className={sectionTitleClasses}>Danh Mục Nổi Bật</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-          {categories.map((category, index) => (
+      {/* Features Section */}
+      <section className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {features.map((feature, index) => (
             <div
-              key={category.name}
+              key={index}
+              className="flex items-start space-x-4 p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300"
               data-aos="fade-up"
               data-aos-delay={index * 100}
-              className={cardBaseClasses}
             >
-              <Link to={category.link} className="block">
-                <img
-                  src={category.image}
-                  alt={category.name}
-                  className="w-full h-48 sm:h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-50 transition-colors duration-300 flex items-center justify-center p-4">
-                  <h3 className="text-white text-lg sm:text-xl lg:text-2xl font-semibold text-center">{category.name}</h3>
-                </div>
-              </Link>
+              <div className="flex-shrink-0 p-3 bg-brand-primary/10 rounded-lg text-brand-primary">
+                {feature.icon}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">{feature.title}</h3>
+                <p className="mt-1 text-sm text-gray-500">{feature.description}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Sản phẩm nổi bật (Nếu có) */}
-      {featuredProducts.length > 0 && (
-        <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          <h2 className={sectionTitleClasses}>Sản Phẩm Nổi Bật</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10">
-            {featuredProducts.map((product) => (
-              <div key={product.id} data-aos="fade-up" className="bg-white rounded-lg shadow-md overflow-hidden group transition-shadow hover:shadow-xl">
-                <Link to={product.link} className="block">
-                  <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden xl:aspect-w-7 xl:aspect-h-8">
-                     <img src={product.image} alt={product.name} className="h-full w-full object-cover object-center group-hover:opacity-75 transition-opacity" loading="lazy"/>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-sm sm:text-base font-medium text-gray-700 truncate group-hover:text-brand-primary">{product.name}</h3>
-                    <div className="mt-1 flex items-baseline">
-                        <p className="text-lg sm:text-xl font-semibold text-brand-primary">{product.price.toLocaleString('vi-VN')}₫</p>
-                        {product.oldPrice && (
-                            <p className="ml-2 text-sm text-gray-500 line-through">{product.oldPrice.toLocaleString('vi-VN')}₫</p>
-                        )}
-                    </div>
-                  </div>
+      {/* Categories Section */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className={sectionTitleClasses}>Danh Mục Nổi Bật</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {categories.map((category, index) => (
+            <div
+              key={category.name}
+              data-aos="fade-up"
+              data-aos-delay={index * 100}
+              className="group relative overflow-hidden rounded-2xl shadow-lg aspect-[3/4]"
+            >
+              <img
+                src={category.image}
+                alt={category.name}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+              <div className={`absolute inset-0 bg-gradient-to-t ${category.color} opacity-60 transition-opacity duration-300 group-hover:opacity-70`} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                <h3 className="text-2xl font-bold text-white mb-2">{category.name}</h3>
+                <Link
+                  to={category.link}
+                  className="px-6 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium hover:bg-white/30 transition-colors duration-300"
+                >
+                  Khám phá
                 </Link>
               </div>
-            ))}
-          </div>
-           <div className="text-center mt-12">
-                <Link
-                    to="/products"
-                    className="bg-brand-primary text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-secondary transition duration-300 text-base"
-                >
-                    Xem Tất Cả Sản Phẩm
-                </Link>
             </div>
-        </section>
-      )}
+          ))}
+        </div>
+      </section>
 
-      {/* Newsletter Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16 sm:py-20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4 sm:mb-6">Đăng Ký Nhận Tin</h2>
-          <p className="text-base sm:text-lg mb-6 sm:mb-8 max-w-xl mx-auto">
-            Nhận ngay voucher giảm giá và cập nhật những ưu đãi mới nhất!
-          </p>
-          <form className="max-w-lg mx-auto sm:flex sm:gap-4">
-            <label htmlFor="email-newsletter" className="sr-only">Email</label>
-            <input
-              id="email-newsletter"
-              type="email"
-              placeholder="Nhập email của bạn..."
-              required
-              className="flex-1 w-full mb-3 sm:mb-0 px-5 py-3 rounded-full text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 focus:ring-offset-purple-600"
-            />
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-8 py-3 bg-white text-brand-primary rounded-full font-semibold hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-purple-600 transition duration-300"
+      {/* Featured Products Section - Updated */}
+      <section className="container mx-auto px-4 py-16 overflow-hidden">
+        <h2 className={sectionTitleClasses}>Sản Phẩm Nổi Bật</h2>
+        
+        {loading ? (
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary"></div>
+          </div>
+        ) : (
+          <Slider {...productSliderSettings} className="featured-products-slider -mx-2">
+            {featuredProducts.map((product) => (
+              <div key={product.id} className="px-2">
+                <div className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-xl transition-shadow duration-300">
+                  <Link to={`/products/${product.id}`} className="block relative aspect-w-1 aspect-h-1">
+                    <img
+                      src={product.imageUrl} // Sử dụng imageUrl từ API
+                      alt={product.name}
+                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-300"
+                    />
+                    {/* Chỉ hiển thị discount badge nếu có discount */}
+                    {product.discount && product.discount > 0 && (
+                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-sm font-medium">
+                        -{product.discount}%
+                      </div>
+                    )}
+                  </Link>
+                  <div className="p-4">
+                    <Link to={`/products/${product.id}`} className="block">
+                      <h3 className="text-sm font-medium text-gray-900 truncate group-hover:text-brand-primary transition-colors">
+                        {product.name}
+                      </h3>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div>
+                          <span className="text-lg font-bold text-brand-primary">
+                            {product.price.toLocaleString('vi-VN')}₫
+                          </span>
+                          {/* Chỉ hiển thị giá gốc nếu có originalPrice */}
+                          {product.originalPrice && product.originalPrice > product.price && (
+                            <span className="ml-2 text-sm text-gray-500 line-through">
+                              {product.originalPrice.toLocaleString('vi-VN')}₫
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Slider>
+        )}
+
+        <div className="text-center mt-12">
+          <Link
+            to="/products"
+            className="inline-flex items-center px-8 py-3 bg-brand-primary text-white rounded-full font-semibold hover:bg-brand-secondary transition-all duration-300 group"
+          >
+            Xem Tất Cả Sản Phẩm
+            <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* Newsletter Section - Enhanced */}
+      <section className="relative py-24 overflow-hidden mt-16 mb-16">
+        {/* Enhanced Background with multiple layers */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800" />
+        <div 
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundSize: '30px 30px'
+          }}
+        />
+        
+        {/* Content Container with enhanced glass effect */}
+        <div className="relative container mx-auto px-4">
+          <div className="max-w-4xl mx-auto bg-white/10 backdrop-blur-md rounded-3xl p-8 sm:p-12 shadow-2xl border border-white/20">
+            <div className="text-center mb-12">
+              {/* Enhanced heading with gradient text */}
+              <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="text-4xl sm:text-5xl font-bold mb-6 bg-gradient-to-r from-white via-purple-200 to-pink-100 text-transparent bg-clip-text"
+              >
+                Đăng Ký Nhận Ưu Đãi
+              </motion.h2>
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="text-xl text-white/90 mb-8"
+              >
+                Nhận ngay voucher giảm giá <span className="font-bold text-pink-300">100.000đ</span> cho đơn hàng đầu tiên
+              </motion.p>
+            </div>
+            
+            {/* Enhanced Form with better visual hierarchy */}
+            <motion.form 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto mb-8"
             >
-              Đăng Ký
-            </button>
-          </form>
+              <div className="flex-1 relative">
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <input
+                  type="email"
+                  placeholder="Email của bạn"
+                  className="w-full pl-12 pr-6 py-4 rounded-full bg-white/10 text-white placeholder-gray-300 border-2 border-white/30 focus:border-pink-400 focus:ring-2 focus:ring-pink-400/30 outline-none transition-all duration-300"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-full font-semibold transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl active:scale-95"
+              >
+                Đăng Ký Ngay
+              </button>
+            </motion.form>
+
+            {/* Enhanced Terms section */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="text-center text-white/70 text-sm space-y-2"
+            >
+              <p>
+                Bằng cách đăng ký, bạn đồng ý với
+              </p>
+              <p>
+                <Link to="/terms" className="text-pink-300 hover:text-pink-200 transition-colors underline">
+                  Điều khoản dịch vụ
+                </Link>
+                {' '}và{' '}
+                <Link to="/privacy" className="text-pink-300 hover:text-pink-200 transition-colors underline">
+                  Chính sách bảo mật
+                </Link>
+                {' '}của chúng tôi
+              </p>
+            </motion.div>
+
+            {/* Additional decorative elements */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-pink-500 to-purple-500 rounded-full blur-3xl opacity-20" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full blur-3xl opacity-20" />
+          </div>
         </div>
       </section>
 
       {/* Footer Section */}
-      <footer className="bg-brand-dark text-gray-300 pt-16 pb-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+      <footer className="bg-gray-900 text-gray-300 pt-16 pb-8">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Về YourShop</h3>
-              <p className="text-sm mb-4">Mang đến trải nghiệm mua sắm thời trang tuyệt vời với sản phẩm chất lượng và dịch vụ tận tâm.</p>
-              {/* Thêm Logo nhỏ nếu muốn */}
+              <h3 className="text-xl font-bold text-white mb-6">Về YourShop</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Mang đến trải nghiệm mua sắm thời trang tuyệt vời với sản phẩm chất lượng và dịch vụ tận tâm.
+              </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Chính Sách</h3>
+              <h3 className="text-xl font-bold text-white mb-6">Chính Sách</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/policy/shipping" className="hover:text-white">Chính sách giao hàng</Link></li>
                 <li><Link to="/policy/returns" className="hover:text-white">Chính sách đổi trả</Link></li>
@@ -262,7 +533,7 @@ const HomePage: React.FC = () => {
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Liên Hệ</h3>
+              <h3 className="text-xl font-bold text-white mb-6">Liên Hệ</h3>
               <ul className="space-y-2 text-sm">
                 <li>Email: support@yourshop.com</li>
                 <li>Hotline: 1900 xxxx</li>
@@ -270,25 +541,24 @@ const HomePage: React.FC = () => {
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Kết Nối Với Chúng Tôi</h3>
+              <h3 className="text-xl font-bold text-white mb-6">Kết Nối Với Chúng Tôi</h3>
               <div className="flex space-x-4">
                 <a href="#" aria-label="Facebook" className="text-gray-400 hover:text-white">
-                  {/* <FacebookIcon className="h-6 w-6" /> */}
-                  <span>FB</span> {/* Thay bằng icon */}
+                  <FaFacebookF className="h-6 w-6" />
                 </a>
                 <a href="#" aria-label="Instagram" className="text-gray-400 hover:text-white">
-                  {/* <InstagramIcon className="h-6 w-6" /> */}
-                  <span>IG</span> {/* Thay bằng icon */}
+                  <FaInstagram className="h-6 w-6" />
                 </a>
                 <a href="#" aria-label="Twitter" className="text-gray-400 hover:text-white">
-                  {/* <TwitterIcon className="h-6 w-6" /> */}
-                  <span>TW</span> {/* Thay bằng icon */}
+                  <FaTwitter className="h-6 w-6" />
                 </a>
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-700 pt-8 text-center text-sm">
-            <p>© {new Date().getFullYear()} YourShop. Tất cả quyền được bảo lưu.</p>
+          <div className="border-t border-gray-800 pt-8 text-center">
+            <p className="text-gray-400">
+              © {new Date().getFullYear()} YourShop. Tất cả quyền được bảo lưu.
+            </p>
           </div>
         </div>
       </footer>
@@ -297,3 +567,4 @@ const HomePage: React.FC = () => {
 };
 
 export default HomePage;
+
