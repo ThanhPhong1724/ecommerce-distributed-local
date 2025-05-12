@@ -26,6 +26,7 @@ interface Product {
   img: string;
   categoryId: string;
   discount?: number;
+  createdAt: string;
   originalPrice?: number;
 }
 
@@ -176,13 +177,19 @@ const HomePage: React.FC = () => {
           getProducts(),
           getCategories()
         ]);
-        // Transform the products to match your component's Product type
+        // Transform products to match the component's Product interface
         const transformedProducts = products.map(product => ({
           ...product,
-          imageUrl: product.img || '/default-image.jpg' // Adjust based on your API response
+          imageUrl: product.img || '/default-image.jpg',
+          createdAt: product.createdAt 
+            ? (typeof product.createdAt === 'string' 
+              ? product.createdAt 
+              : product.createdAt.toISOString())
+            : new Date().toISOString() // Provide default value for undefined createdAt
         }));
-        setFeaturedProducts(products.slice(0, 8));
-        setCategories(categoriesData);
+    
+      setFeaturedProducts(transformedProducts.slice(0, 8));
+      setCategories(categoriesData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
