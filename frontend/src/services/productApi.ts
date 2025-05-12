@@ -5,11 +5,17 @@ import apiClient from './apiClient';
 export interface Product {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
   stockQuantity: number;
-  imageUrl: string; // Frontend sẽ sử dụng imageUrl
+  img: string; // Changed from imageUrl to img to match database
+  category?: {
+    id: string;
+    name: string;
+  };
   categoryId: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export const getProducts = async (): Promise<Product[]> => {
@@ -34,6 +40,19 @@ export const getProductById = async (id: string): Promise<Product> => {
     };
   } catch (error) {
     console.error('Error fetching product:', error);
+    throw error;
+  }
+};
+
+export const getProductsByCategory = async (categoryId: string): Promise<Product[]> => {
+  try {
+    const response = await apiClient.get<any[]>(`/products/category/${categoryId}`);
+    return response.data.map(product => ({
+      ...product,
+      imageUrl: product.img // Map từ img sang imageUrl
+    }));
+  } catch (error) {
+    console.error('Error fetching products by category:', error);
     throw error;
   }
 };

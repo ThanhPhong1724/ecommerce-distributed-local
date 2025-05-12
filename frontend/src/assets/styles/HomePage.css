@@ -11,8 +11,21 @@
 }
 
 .featured-products-slider .slick-slide {
-  height: inherit !important;
-  padding: 0 8px;
+  height: auto; /* Cho phép slide tự điều chỉnh theo nội dung */
+}
+
+.featured-products-slider .product-image-container {
+  position: relative;
+  padding-top: 100%; /* Tạo tỷ lệ khung hình 1:1 */
+}
+
+.featured-products-slider img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* Custom arrow styles */
@@ -72,4 +85,11 @@
 .product-card.active {
   opacity: 1;
   transform: scale(1.05);
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

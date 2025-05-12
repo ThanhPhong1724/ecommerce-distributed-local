@@ -4,5 +4,5 @@ export interface CartItem {
   quantity: number;
   name: string; // Cho phép undefined
   price: number;
-  imageUrl: string | null;
+  img: string | null;
 }

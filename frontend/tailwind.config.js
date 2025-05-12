@@ -14,7 +14,7 @@ module.exports = {
       },
       colors: {
         'brand-primary': '#3B82F6',
-        'brand-secondary': '#EC4899',
+        'brand-secondary': '#60A5FA',
         'brand-dark': '#111827',
         'brand-light': '#F9FAFB',
       }

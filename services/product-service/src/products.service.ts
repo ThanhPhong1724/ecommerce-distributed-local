@@ -151,7 +151,33 @@ export class ProductsService {
     }
   }
   // --- KẾT THÚC HÀM CẬP NHẬT TỒN KHO ---
-  
+
+  async findByCategory(categoryId: string): Promise<Product[]> {
+    const cacheKey = `products_category_${categoryId}`;
+    const cachedProducts = await this.cacheManager.get<Product[]>(cacheKey);
+
+    if (cachedProducts) {
+      this.logger.log(`Fetching products for category ${categoryId} from cache`);
+      return cachedProducts;
+    }
+
+    this.logger.log(`Fetching products for category ${categoryId} from DB`);
+    const products = await this.productRepository.find({
+      where: { categoryId },
+      relations: ['category'],
+      select: ['id', 'name', 'description', 'price', 'stockQuantity', 'img', 'createdAt', 'updatedAt'],
+    });
+
+    if (products.length === 0) {
+      // Kiểm tra xem category có tồn tại không
+      await this.categoriesService.findOne(categoryId);
+      // Nếu category tồn tại nhưng không có sản phẩm, trả về mảng rỗng
+    }
+
+    await this.cacheManager.set(cacheKey, products, 300); // Cache 5 phút
+    return products;
+  }
+
   // --- Cache Invalidation Helpers ---
   private async clearProductCache(id: string) {
       const cacheKey = `product_${id}`;
@@ -167,5 +193,13 @@ export class ProductsService {
       await this.cacheManager.del(listCacheKey);
       console.log('Cleared cache for products list');
       // Lưu ý: Cách invalidation này khá đơn giản, trong thực tế có thể cần phức tạp hơn.
+
+      // Thêm logic xóa cache của category
+      const category = await this.categoriesService.findAll();
+      for (const cat of category) {
+        const categoryKey = `products_category_${cat.id}`;
+        await this.cacheManager.del(categoryKey);
+        this.logger.log(`Cleared cache for category ${cat.id}`);
+      }
   }
 }

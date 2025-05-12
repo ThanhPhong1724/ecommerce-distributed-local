@@ -131,7 +131,7 @@ export class CartService implements OnModuleInit, OnModuleDestroy {
             quantity: item.quantity,
             name: details.name || 'Unknown Product', // Cung cấp giá trị mặc định
             price: details.price || 0, // Cung cấp giá trị mặc định nếu price là undefined
-            imageUrl: details.imageUrl || null, // Cung cấp giá trị mặc định nếu imageUrl là undefined
+            img: details.img || null, // Cung cấp giá trị mặc định nếu img là undefined
           };
         }
         this.logger.warn(`Loại bỏ item ${item.productId} khỏi giỏ hàng user ${userId} vì không lấy được thông tin chi tiết.`);

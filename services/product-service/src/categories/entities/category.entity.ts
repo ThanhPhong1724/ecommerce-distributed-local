@@ -12,6 +12,9 @@ export class Category {
 
   @Column({ nullable: true })
   description: string;
+  
+  @Column({ type: 'varchar', nullable: true }) // Chỉ định rõ kiểu dữ liệu là varchar
+  img: string;
 
   // Một Category có thể có nhiều Product
   @OneToMany(() => Product, (product) => product.category)

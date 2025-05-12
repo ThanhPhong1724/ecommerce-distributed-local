@@ -11,8 +11,12 @@ import { Put, Request, HttpCode, HttpStatus, UseGuards } from '@nestjs/common'; 
 export class ProductsController {
   private readonly logger = new Logger(ProductsController.name); // <<< Thêm Logger
   
-  constructor(private readonly productsService: ProductsService) {}
-
+  constructor(private readonly productsService: ProductsService) {
+    this.logger.debug('Available routes:');
+    this.logger.debug('GET /products/category/:categoryId');
+    this.logger.debug('GET /products/:id');
+    this.logger.debug('GET /products');
+  }
   // --- PHƯƠNG THỨC HEALTH CHECK NẰM Ở ĐÂY ---
   @Get('health') // Route sẽ là /cart/health
   @HttpCode(HttpStatus.OK)
@@ -72,6 +76,13 @@ export class ProductsController {
   }
   */
 
+  @Get('category/:categoryId')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300) // Cache 5 phút
+  async findByCategory(@Param('categoryId', ParseUUIDPipe) categoryId: string) {
+    this.logger.log(`Finding products for category ${categoryId}`);
+    return this.productsService.findByCategory(categoryId);
+  }
 
   @Patch(':id')
   update(@Param('id', ParseUUIDPipe) id: string, @Body(ValidationPipe) updateProductDto: UpdateProductDto) {

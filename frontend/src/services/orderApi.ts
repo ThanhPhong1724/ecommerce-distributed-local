@@ -116,10 +116,30 @@ export interface OrderListItem {
 // Thêm hàm lấy danh sách đơn hàng
 export const getOrders = async (): Promise<OrderListItem[]> => {
   try {
-    const response = await apiClient.get<OrderListItem[]>('/orders');
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      throw new Error('Vui lòng đăng nhập để xem lịch sử đơn hàng');
+    }
+
+    // Endpoint sẽ là http://localhost/api/orders
+    const response = await apiClient.get<OrderListItem[]>('/orders', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log('Orders response:', response.data); // Thêm log để debug
     return response.data;
-  } catch (error) {
-    console.error('Error fetching orders:', error);
+  } catch (error: any) {
+    console.error('Error fetching orders:', error); // Thêm log để debug
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 404) {
+        throw new Error('Không tìm thấy lịch sử đơn hàng');
+      }
+      if (error.response?.status === 401) {
+        throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+      }
+    }
     throw error;
   }
 };

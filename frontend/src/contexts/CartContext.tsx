@@ -12,7 +12,7 @@ export interface CartItem {
   // Những thông tin này thường được lấy khi hiển thị, không nhất thiết lưu hết trong Cart state
   name?: string;
   price?: number;
-  imageUrl?: string;
+  img?: string;
 }
 
 // Định nghĩa kiểu dữ liệu cho trạng thái Cart

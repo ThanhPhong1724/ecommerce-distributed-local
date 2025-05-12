@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getProducts } from '../services/productApi';
+import { getCategories } from '../services/categoryApi';
 import { Link } from 'react-router-dom';
 import Slider from 'react-slick';
 import { motion } from 'framer-motion';
@@ -14,27 +15,24 @@ import summerCollectionImg from "../assets/images/hero/summer-collection.jpg";
 import winterCollectionImg from "../assets/images/hero/winter-collection.jpg";
 import accessoriesImg from "../assets/images/hero/accessories.jpg";
 
-// Import images for categories
-import topsImg from "../assets/images/categories/tops.jpg";
-import pantsImg from "../assets/images/categories/pants.jpg";
-import dressesImg from "../assets/images/categories/dresses.jpg";
-import accessoriesCatImg from "../assets/images/categories/accessories.jpg";
-
-// Import images for products
-// import basicTeeImg from "../assets/images/products/basic-tee.jpg";
-// import slimJeansImg from "../assets/images/products/slim-jeans.jpg";
 import './../assets/styles/HomePage.css';
 
 interface Product {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
   stockQuantity: number;
-  imageUrl: string;
+  img: string;
   categoryId: string;
   discount?: number;
   originalPrice?: number;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  img: string;
 }
 
 const ProductSliderArrow = ({ direction, onClick }: { direction: 'prev' | 'next'; onClick?: () => void }) => (
@@ -73,41 +71,14 @@ const heroSlides = [
     title: "BST Áo Khoác Mới",
     description: "Những mẫu áo khoác thời thượng nhất mùa này",
     buttonText: "Xem Bộ Sưu Tập",
-    buttonLink: "/products?category=jackets"
+    buttonLink: "/products?collection=summer-2025"
   },
   {
     image: accessoriesImg,
     title: "Phụ Kiện Cao Cấp",
     description: "Hoàn thiện phong cách của bạn",
     buttonText: "Mua Sắm Ngay",
-    buttonLink: "/products?category=accessories"
-  }
-];
-
-const categories = [
-  {
-    name: "Áo",
-    image: topsImg,
-    link: "/products?category=ao",
-    color: "from-blue-500 to-blue-700"
-  },
-  {
-    name: "Quần",
-    image: pantsImg,
-    link: "/products?category=quan",
-    color: "from-green-500 to-green-700"
-  },
-  {
-    name: "Váy",
-    image: dressesImg,
-    link: "/products?category=vay",
-    color: "from-purple-500 to-purple-700"
-  },
-  {
-    name: "Phụ Kiện", 
-    image: accessoriesCatImg,
-    link: "/products?category=phu-kien",
-    color: "from-red-500 to-red-700"
+    buttonLink: "/products?collection=summer-2025"
   }
 ];
 
@@ -133,24 +104,6 @@ const features = [
     description: "Cho thành viên VIP"
   }
 ];
-
-interface Category {
-  name: string;
-  image: string;
-  link: string;
-  color: string;
-}
-
-interface FeaturedProduct {
-  id: string;
-  name: string;
-  image: string;
-  price: number;
-  oldPrice?: number;
-  link: string;
-  tag?: string;
-  badgeColor?: string;
-}
 
 const CustomArrow = ({ direction, onClick }: { direction: 'prev' | 'next'; onClick?: () => void }) => (
   <button
@@ -195,8 +148,19 @@ const sliderSettings = {
   ]
 };
 
+const getCategoryColor = (categoryName: string): string => {
+  const colorMap: { [key: string]: string } = {
+    'Áo': 'from-blue-500 to-blue-700',
+    'Quần': 'from-red-500 to-red-700',
+    'Váy': 'from-purple-500 to-purple-700',
+    'Phụ Kiện': 'from-red-500 to-red-700'
+  };
+  return colorMap[categoryName] || 'from-gray-500 to-gray-700'; // Default color
+};
+
 const HomePage: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -206,18 +170,27 @@ const HomePage: React.FC = () => {
       offset: 50,
     });
 
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const products = await getProducts();
-        setFeaturedProducts(products.slice(0, 8)); // Lấy 8 sản phẩm đầu tiên
+        const [products, categoriesData] = await Promise.all([
+          getProducts(),
+          getCategories()
+        ]);
+        // Transform the products to match your component's Product type
+        const transformedProducts = products.map(product => ({
+          ...product,
+          imageUrl: product.img || '/default-image.jpg' // Adjust based on your API response
+        }));
+        setFeaturedProducts(products.slice(0, 8));
+        setCategories(categoriesData);
       } catch (error) {
-        console.error('Error fetching products:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchData();
   }, []);
 
   const sectionTitleClasses = "text-3xl sm:text-4xl font-bold text-center text-gray-800 mb-12";
@@ -334,21 +307,23 @@ const HomePage: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {categories.map((category, index) => (
             <div
-              key={category.name}
+              key={category.id}
               data-aos="fade-up"
               data-aos-delay={index * 100}
               className="group relative overflow-hidden rounded-2xl shadow-lg aspect-[3/4]"
             >
               <img
-                src={category.image}
+                src={category.img}
                 alt={category.name}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div className={`absolute inset-0 bg-gradient-to-t ${category.color} opacity-60 transition-opacity duration-300 group-hover:opacity-70`} />
+              <div className={`absolute inset-0 bg-gradient-to-t opacity-60 transition-opacity duration-300 group-hover:opacity-70 ${
+                getCategoryColor(category.name)
+              }`} />
               <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
                 <h3 className="text-2xl font-bold text-white mb-2">{category.name}</h3>
                 <Link
-                  to={category.link}
+                  to={`/products?category=${category.id}`}
                   className="px-6 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium hover:bg-white/30 transition-colors duration-300"
                 >
                   Khám phá
@@ -359,7 +334,7 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Products Section - Updated */}
+      {/* Featured Products Section */}
       <section className="container mx-auto px-4 py-16 overflow-hidden">
         <h2 className={sectionTitleClasses}>Sản Phẩm Nổi Bật</h2>
         
@@ -372,13 +347,15 @@ const HomePage: React.FC = () => {
             {featuredProducts.map((product) => (
               <div key={product.id} className="px-2">
                 <div className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-xl transition-shadow duration-300">
-                  <Link to={`/products/${product.id}`} className="block relative aspect-w-1 aspect-h-1">
+                  <Link 
+                    to={`/products/${product.id}`} 
+                    className="block relative aspect-w-1 aspect-h-1 w-full h-64" // Thêm h-64 để fix chiều cao
+                  >
                     <img
-                      src={product.imageUrl} // Sử dụng imageUrl từ API
+                      src={product.img}
                       alt={product.name}
                       className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-300"
                     />
-                    {/* Chỉ hiển thị discount badge nếu có discount */}
                     {product.discount && product.discount > 0 && (
                       <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-sm font-medium">
                         -{product.discount}%
@@ -395,7 +372,6 @@ const HomePage: React.FC = () => {
                           <span className="text-lg font-bold text-brand-primary">
                             {product.price.toLocaleString('vi-VN')}₫
                           </span>
-                          {/* Chỉ hiển thị giá gốc nếu có originalPrice */}
                           {product.originalPrice && product.originalPrice > product.price && (
                             <span className="ml-2 text-sm text-gray-500 line-through">
                               {product.originalPrice.toLocaleString('vi-VN')}₫
@@ -422,9 +398,8 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Newsletter Section - Enhanced */}
+      {/* Newsletter Section */}
       <section className="relative py-24 overflow-hidden mt-16 mb-16">
-        {/* Enhanced Background with multiple layers */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800" />
         <div 
           className="absolute inset-0 opacity-20"
@@ -434,11 +409,9 @@ const HomePage: React.FC = () => {
           }}
         />
         
-        {/* Content Container with enhanced glass effect */}
         <div className="relative container mx-auto px-4">
           <div className="max-w-4xl mx-auto bg-white/10 backdrop-blur-md rounded-3xl p-8 sm:p-12 shadow-2xl border border-white/20">
             <div className="text-center mb-12">
-              {/* Enhanced heading with gradient text */}
               <motion.h2 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -457,7 +430,6 @@ const HomePage: React.FC = () => {
               </motion.p>
             </div>
             
-            {/* Enhanced Form with better visual hierarchy */}
             <motion.form 
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -484,7 +456,6 @@ const HomePage: React.FC = () => {
               </button>
             </motion.form>
 
-            {/* Enhanced Terms section */}
             <motion.div 
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
@@ -506,62 +477,11 @@ const HomePage: React.FC = () => {
               </p>
             </motion.div>
 
-            {/* Additional decorative elements */}
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-pink-500 to-purple-500 rounded-full blur-3xl opacity-20" />
             <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full blur-3xl opacity-20" />
           </div>
         </div>
       </section>
-
-      {/* Footer Section */}
-      <footer className="bg-gray-900 text-gray-300 pt-16 pb-8">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-            <div>
-              <h3 className="text-xl font-bold text-white mb-6">Về YourShop</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Mang đến trải nghiệm mua sắm thời trang tuyệt vời với sản phẩm chất lượng và dịch vụ tận tâm.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-6">Chính Sách</h3>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/policy/shipping" className="hover:text-white">Chính sách giao hàng</Link></li>
-                <li><Link to="/policy/returns" className="hover:text-white">Chính sách đổi trả</Link></li>
-                <li><Link to="/policy/privacy" className="hover:text-white">Chính sách bảo mật</Link></li>
-                <li><Link to="/terms-of-service" className="hover:text-white">Điều khoản dịch vụ</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-6">Liên Hệ</h3>
-              <ul className="space-y-2 text-sm">
-                <li>Email: support@yourshop.com</li>
-                <li>Hotline: 1900 xxxx</li>
-                <li>Địa chỉ: 123 Đường ABC, Quận XYZ, TP HCM</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-6">Kết Nối Với Chúng Tôi</h3>
-              <div className="flex space-x-4">
-                <a href="#" aria-label="Facebook" className="text-gray-400 hover:text-white">
-                  <FaFacebookF className="h-6 w-6" />
-                </a>
-                <a href="#" aria-label="Instagram" className="text-gray-400 hover:text-white">
-                  <FaInstagram className="h-6 w-6" />
-                </a>
-                <a href="#" aria-label="Twitter" className="text-gray-400 hover:text-white">
-                  <FaTwitter className="h-6 w-6" />
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 pt-8 text-center">
-            <p className="text-gray-400">
-              © {new Date().getFullYear()} YourShop. Tất cả quyền được bảo lưu.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

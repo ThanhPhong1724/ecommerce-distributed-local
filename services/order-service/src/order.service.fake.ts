@@ -327,9 +327,17 @@ export interface CartItem { productId: string; quantity: number; }
 
 // src/interfaces/product.interface.ts
 export interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  stockQuantity: number;
+  img: string; // Changed from imageUrl to img to match database
+  category?: {
     id: string;
     name: string;
-    price: number;
-    stockQuantity: number;
-    // Thêm các trường khác nếu cần
+  };
+  categoryId: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }

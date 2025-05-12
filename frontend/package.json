@@ -19,7 +19,7 @@
     "aos": "^2.3.4",
     "axios": "^1.9.0",
     "date-fns": "^4.1.0",
-    "framer-motion": "^12.10.1",
+    "framer-motion": "^12.10.5",
     "lodash": "^4.17.21",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
