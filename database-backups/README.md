@@ -41,7 +41,7 @@ docker-compose exec postgres_db pg_dump -U myuser -d ecom_dev_db -f /tmp/ecommer
 # 2. Copy file từ container ra host (thay postgres_db_container_name bằng tên container thực tế nếu cần)
 # Tìm tên container: docker ps --filter "name=postgres_db" --format "{{.Names}}"
 # Giả sử tên container là ecommerce-distributed-local-postgres_db-1
-docker cp postgres_db:/tmp/ecommerce_backup.sql "d:/ecommerce-distributed-local/database-backups/"
+docker cp postgres_db_container:/tmp/ecommerce_backup.sql "d:/ecommerce-distributed-local/database-backups/"
 
 # 3. (Optional) Xóa file tạm trong container
 docker-compose exec postgres_db rm /tmp/ecommerce_backup.sql

@@ -6,7 +6,7 @@ import Slider from 'react-slick';
 import { motion } from 'framer-motion';
 import AOS from 'aos';
 import { FiArrowRight, FiShoppingBag, FiTruck, FiShield, FiCreditCard } from 'react-icons/fi';
-import { FaFacebookF, FaInstagram, FaTwitter } from 'react-icons/fa';
+// import { FaFacebookF, FaInstagram, FaTwitter } from 'react-icons/fa';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "aos/dist/aos.css";
