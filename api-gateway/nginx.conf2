@@ -1,0 +1,255 @@
+# # api-gateway/nginx.conf
+
+# # Chạy Nginx với user không phải root để tăng bảo mật (tùy chọn)
+# # user nginx;
+# worker_processes auto; # Tự động xác định số worker process tối ưu
+
+# # File lưu PID của Nginx master process
+# pid /var/run/nginx.pid;
+
+# # Cấu hình events (số lượng connection tối đa cho mỗi worker)
+# events {
+#     worker_connections 1024; # Giới hạn số connection đồng thời mỗi worker
+# }
+
+# # Khối cấu hình HTTP chính
+# http {
+#     # Định nghĩa các kiểu MIME mà Nginx sẽ phục vụ
+#     include       /etc/nginx/mime.types;
+#     default_type  application/octet-stream;
+
+#     # Cấu hình định dạng log truy cập (access log)
+#     log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+#                       '$status $body_bytes_sent "$http_referer" '
+#                       '"$http_user_agent" "$http_x_forwarded_for"';
+
+#     # Vị trí lưu access log và error log
+#     access_log  /var/log/nginx/access.log  main;
+#     error_log   /var/log/nginx/error.log   warn; # Chỉ log lỗi warning trở lên
+
+#     # Bật tối ưu hóa gửi file qua network
+#     sendfile        on;
+#     # tcp_nopush     on; # Tối ưu cho việc gửi response lớn
+
+#     # Thời gian giữ kết nối keep-alive
+#     keepalive_timeout  65;
+
+#     # Bật nén Gzip để giảm kích thước response (tùy chọn)
+#     # gzip  on;
+
+#     # --- Định nghĩa các Upstream Servers (các microservices) ---
+#     # Đặt tên upstream trùng với tên service trong docker-compose để dễ quản lý
+#     upstream user_service_backend {
+#         # Địa chỉ nội bộ của user-service container
+#         server user_service:3001; # Tên service và port nội bộ
+#     }
+
+#     upstream product_service_backend {
+#         server product_service:3002;
+#     }
+
+#     upstream cart_service_backend {
+#         server cart_service:3003;
+#     }
+
+#     upstream order_service_backend {
+#         server order_service:3004;
+#     }
+
+#     upstream payment_service_backend {
+#         server payment_service:3005;
+#     }
+
+#     # --- Định nghĩa Server Block chính (lắng nghe trên port 80) ---
+#     server {
+#         listen 80 default_server; # Lắng nghe trên port 80
+#         server_name localhost;    # Tên miền xử lý (dùng localhost cho local)
+
+#         # --- THÊM CẤU HÌNH CORS Ở ĐÂY ---
+#         add_header 'Access-Control-Allow-Origin' 'http://localhost:5173' always;
+#         add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS' always;
+#         add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With' always;
+#         add_header 'Access-Control-Allow-Credentials' 'true' always;
+#         # --- KẾT THÚC CẤU HÌNH CORS ---
+
+#         # --- Định tuyến request dựa trên đường dẫn (location) ---
+
+#         # Chuyển tiếp tất cả request có dạng /api/users/... đến user_service
+#         location /api/users {
+#             if ($request_method = 'OPTIONS') {
+#                 # THÊM CÁC HEADER CORS VÀO ĐÂY
+#                 add_header 'Access-Control-Allow-Origin' 'http://localhost:5173'; # Hoặc dùng $http_origin nếu muốn linh động hơn (cẩn thận bảo mật)
+#                 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+#                 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With';
+#                 add_header 'Access-Control-Allow-Credentials' 'true';
+#                 add_header 'Access-Control-Max-Age' 1728000;
+#                 add_header 'Content-Length' 0;
+#                 return 204;
+#             }
+
+#             # Ghi lại URL gốc trước khi rewrite (tùy chọn debug)
+#             # rewrite_log on;
+
+#             # Rewrite URL: Loại bỏ phần /api/users/ khỏi đường dẫn
+#             # Ví dụ: /api/users/profile -> /profile
+#             rewrite ^/api/users(?:/(.*))?$ /users/$1 break;
+
+#             # Proxy pass request đến upstream đã định nghĩa
+#             proxy_pass http://user_service_backend;
+
+#             # Các header quan trọng cần forward cho backend service
+#             proxy_set_header Host $host;
+#             proxy_set_header X-Real-IP $remote_addr;
+#             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#             proxy_set_header X-Forwarded-Proto $scheme;
+
+#             # Tăng timeout nếu cần
+#             # proxy_connect_timeout       600;
+#             # proxy_send_timeout          600;
+#             # proxy_read_timeout          600;
+#             # send_timeout                600;
+#         }
+
+#          # Chuyển tiếp request /api/auth/... đến user_service (vì auth nằm trong user_service)
+#         location /api/auth {
+#             if ($request_method = 'OPTIONS') {
+#                 # THÊM CÁC HEADER CORS VÀO ĐÂY
+#                 add_header 'Access-Control-Allow-Origin' 'http://localhost:5173'; # Hoặc dùng $http_origin nếu muốn linh động hơn (cẩn thận bảo mật)
+#                 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+#                 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With';
+#                 add_header 'Access-Control-Allow-Credentials' 'true';
+#                 add_header 'Access-Control-Max-Age' 1728000;
+#                 add_header 'Content-Length' 0;
+#                 return 204;
+#             }
+
+
+#             rewrite ^/api/auth(?:/(.*))?$ /auth/$1 break;
+#             proxy_pass http://user_service_backend;
+#             proxy_set_header Host $host;
+#             proxy_set_header X-Real-IP $remote_addr;
+#             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#             proxy_set_header X-Forwarded-Proto $scheme;
+#         }
+
+#         # Chuyển tiếp request /api/products/... đến product_service
+#         location /api/products {
+#             if ($request_method = 'OPTIONS') {
+#                 # THÊM CÁC HEADER CORS VÀO ĐÂY
+#                 add_header 'Access-Control-Allow-Origin' 'http://localhost:5173'; # Hoặc dùng $http_origin nếu muốn linh động hơn (cẩn thận bảo mật)
+#                 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+#                 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With';
+#                 add_header 'Access-Control-Allow-Credentials' 'true';
+#                 add_header 'Access-Control-Max-Age' 1728000;
+#                 add_header 'Content-Length' 0;
+#                 return 204;
+#             }
+
+#             # Rewrite URL:
+#             # /api/products -> /products
+#             # /api/products/ -> /products
+#             # /api/products/abc -> /products/abc
+#             # /api/products?query=1 -> /products?query=1
+#             rewrite ^/api/products(?:/(.*))?$ /products/$1 break; # <<< THÊM /products/ VÀO ĐÂY
+#             proxy_pass http://product_service_backend;
+#             proxy_set_header Host $host;
+#             proxy_set_header X-Real-IP $remote_addr;
+#             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#             proxy_set_header X-Forwarded-Proto $scheme;
+#         }
+
+#          # Chuyển tiếp request /api/categories/... đến product_service (vì categories nằm trong product_service)
+#         location /api/categories {
+#             if ($request_method = 'OPTIONS') {
+#                 # THÊM CÁC HEADER CORS VÀO ĐÂY
+#                 add_header 'Access-Control-Allow-Origin' 'http://localhost:5173'; # Hoặc dùng $http_origin nếu muốn linh động hơn (cẩn thận bảo mật)
+#                 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+#                 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With';
+#                 add_header 'Access-Control-Allow-Credentials' 'true';
+#                 add_header 'Access-Control-Max-Age' 1728000;
+#                 add_header 'Content-Length' 0;
+#                 return 204;
+#             }
+
+#             rewrite ^/api/categories(?:/(.*))?$ /categories/$1 break;
+#             proxy_pass http://product_service_backend;
+#             proxy_set_header Host $host;
+#             proxy_set_header X-Real-IP $remote_addr;
+#             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#             proxy_set_header X-Forwarded-Proto $scheme;
+#         }
+
+#         # Chuyển tiếp request /api/cart/... đến cart_service
+#         location /api/cart {
+#             if ($request_method = 'OPTIONS') {
+#                 # THÊM CÁC HEADER CORS VÀO ĐÂY
+#                 add_header 'Access-Control-Allow-Origin' 'http://localhost:5173'; # Hoặc dùng $http_origin nếu muốn linh động hơn (cẩn thận bảo mật)
+#                 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+#                 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With';
+#                 add_header 'Access-Control-Allow-Credentials' 'true';
+#                 add_header 'Access-Control-Max-Age' 1728000;
+#                 add_header 'Content-Length' 0;
+#                 return 204;
+#             }
+
+#             rewrite ^/api/cart(?:/(.*))?$ /cart/$1 break;
+#             proxy_pass http://cart_service_backend;
+#             proxy_set_header Host $host;
+#             proxy_set_header X-Real-IP $remote_addr;
+#             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#             proxy_set_header X-Forwarded-Proto $scheme;
+#         }
+
+#         # Chuyển tiếp request /api/orders/... đến order_service
+#         location /api/orders {
+#             if ($request_method = 'OPTIONS') {
+#                 # THÊM CÁC HEADER CORS VÀO ĐÂY
+#                 add_header 'Access-Control-Allow-Origin' 'http://localhost:5173'; # Hoặc dùng $http_origin nếu muốn linh động hơn (cẩn thận bảo mật)
+#                 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+#                 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With';
+#                 add_header 'Access-Control-Allow-Credentials' 'true';
+#                 add_header 'Access-Control-Max-Age' 1728000;
+#                 add_header 'Content-Length' 0;
+#                 return 204;
+#             }
+
+#             rewrite ^/api/orders(?:/(.*))?$ /orders/$1 break;
+#             proxy_pass http://order_service_backend;
+#             proxy_set_header Host $host;
+#             proxy_set_header X-Real-IP $remote_addr;
+#             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#             proxy_set_header X-Forwarded-Proto $scheme;
+#         }
+
+#         location /api/payment {
+#             if ($request_method = 'OPTIONS') {
+#                 # THÊM CÁC HEADER CORS VÀO ĐÂY
+#                 add_header 'Access-Control-Allow-Origin' 'http://localhost:5173'; # Hoặc dùng $http_origin nếu muốn linh động hơn (cẩn thận bảo mật)
+#                 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+#                 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, X-Requested-With';
+#                 add_header 'Access-Control-Allow-Credentials' 'true';
+#                 add_header 'Access-Control-Max-Age' 1728000;
+#                 add_header 'Content-Length' 0;
+#                 return 204;
+#             }
+
+#             rewrite ^/api/payment(?:/(.*))?$ /payment/$1 break;
+#             proxy_pass http://payment_service_backend;
+#             # ... proxy_set_header ...
+#         }
+
+#         # --- (Tùy chọn) Phục vụ Frontend ---
+#         # Nếu bạn muốn Gateway cũng phục vụ luôn file tĩnh của Frontend
+#         # location / {
+#         #     root   /usr/share/nginx/html; # Thư mục chứa file build của frontend
+#         #     index  index.html index.htm;
+#         #     try_files $uri $uri/ /index.html; # Cho Single Page Application (SPA)
+#         # }
+
+#         # --- Cấu hình xử lý lỗi (tùy chọn) ---
+#         # error_page   500 502 503 504  /50x.html;
+#         # location = /50x.html {
+#         #     root   /usr/share/nginx/html;
+#         # }
+#     }
+# }

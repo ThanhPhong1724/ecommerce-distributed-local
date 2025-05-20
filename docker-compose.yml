@@ -1,0 +1,385 @@
+# ecommerce-distributed-local/docker-compose.yml
+# version: '3.8' # Xóa dòng này vì không còn cần thiết
+
+services:
+  # --- Cơ sở hạ tầng ---
+
+  postgres_db:
+    image: postgres:14-alpine
+    container_name: postgres_db_container
+    environment:
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-ecommerce_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce_network
+    # Thêm healthcheck cho DB (chờ DB sẵn sàng nhận lệnh)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-ecommerce_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  postgres_db_user_product: # <<< Đổi tên service DB
+    image: postgres:14-alpine
+    container_name: postgres_db_up_container # <<< Đổi tên container
+    environment:
+      POSTGRES_USER: ${DB_UP_USER:-user_product_admin}
+      POSTGRES_PASSWORD: ${DB_UP_PASSWORD:-user_product_secret}
+      POSTGRES_DB: ${DB_UP_NAME:-ecommerce_up_db}
+    ports:
+      - "${DB_UP_PORT:-5434}:5432" # <<< Sử dụng port mới từ .env
+    volumes:
+      - postgres_up_data:/var/lib/postgresql/data # <<< Volume riêng
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_UP_USER:-user_product_admin} -d ${DB_UP_NAME:-ecommerce_up_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres_db_order_cart: # <<< DB mới cho Order và Cart (nếu Cart dùng DB)
+    image: postgres:14-alpine
+    container_name: postgres_db_oc_container
+    environment:
+      POSTGRES_USER: ${DB_OC_USER:-order_cart_admin}
+      POSTGRES_PASSWORD: ${DB_OC_PASSWORD:-order_cart_secret}
+      POSTGRES_DB: ${DB_OC_NAME:-ecommerce_oc_db}
+    ports:
+      - "${DB_OC_PORT:-5435}:5432" # <<< Sử dụng port mới từ .env
+    volumes:
+      - postgres_oc_data:/var/lib/postgresql/data # <<< Volume riêng
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_OC_USER:-order_cart_admin} -d ${DB_OC_NAME:-ecommerce_oc_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+      
+  redis_cache:
+    image: redis:6-alpine
+    container_name: redis_cache_container
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecommerce_network
+    # Thêm healthcheck cho Redis (kiểm tra ping)
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  rabbitmq_queue:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq_queue_container
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-rabbit_user} # Sử dụng user từ .env
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-rabbit_pass} # Sử dụng pass từ .env
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+    networks:
+      - ecommerce_network
+    # Thêm healthcheck cho RabbitMQ
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s # Tăng interval một chút cho RabbitMQ
+      timeout: 10s
+      retries: 5
+      start_period: 20s # Tăng start_period cho RabbitMQ
+
+  # --- Microservices ---
+  user_service:
+    build: ./services/user-service
+    container_name: user_service_container
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_HOST: postgres_db_user_product # <<< Trỏ đến DB mới
+      DATABASE_PORT: 5432 # Port nội bộ của Postgres trong Docker
+      DATABASE_USER: ${DB_UP_USER:-user_product_admin}
+      DATABASE_PASSWORD: ${DB_UP_PASSWORD:-user_product_secret}
+      DATABASE_NAME: ${DB_UP_NAME:-ecommerce_up_db}
+      JWT_SECRET: ${JWT_SECRET:-YourDefaultSecretKey}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600s}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-rabbit_user}:${RABBITMQ_PASS:-rabbit_pass}@rabbitmq_queue:5672 # <<< Sử dụng user/pass từ env
+      PORT: 3001
+    # Bỏ volume mount src khi không cần debug nóng nữa để tránh ghi đè node_modules
+    # volumes:
+    #   - ./services/user-service/src:/usr/src/app/src
+    networks:
+      - ecommerce_network
+    depends_on:
+      postgres_db:
+        condition: service_healthy # <<< Chờ DB healthy
+      rabbitmq_queue:
+        condition: service_healthy # <<< Chờ RabbitMQ healthy
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3001/users/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  product_service:
+    build: ./services/product-service
+    container_name: product_service_container
+    ports:
+      - "3002:3002"
+    environment:
+      DATABASE_HOST: postgres_db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USER:-admin}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-password}
+      DATABASE_NAME: ${DB_NAME:-ecommerce_db}
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      CACHE_TTL: ${CACHE_TTL:-60}
+      PORT: 3002
+    networks:
+      - ecommerce_network
+    depends_on:
+      postgres_db:
+        condition: service_healthy # <<< Chờ DB healthy
+      redis_cache:
+        condition: service_healthy # <<< Chờ Redis healthy
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3002/products/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+
+  cart_service:
+    build: ./services/cart-service
+    container_name: cart_service_container
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: development
+      # Lấy giá trị từ file .env và đặt làm biến môi trường cho container
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      PORT: 3003
+    networks:
+      - ecommerce_network
+    depends_on:
+      redis_cache:
+        condition: service_healthy # <<< Chờ Redis healthy
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/cart/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  order_service:
+    build: ./services/order-service
+    container_name: order_service_container
+    ports:
+      - "3004:3004"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}  # Đảm bảo biến này được set
+      DATABASE_HOST: postgres_db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USER:-admin}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-password}
+      DATABASE_NAME: ${DB_NAME:-ecommerce_db}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-rabbit_user}:${RABBITMQ_PASS:-rabbit_pass}@rabbitmq_queue:5672 # <<< Sử dụng user/pass từ env
+      RABBITMQ_USER: ${RABBITMQ_USER:-rabbit_user} # <<< Thêm để ClientProxy đọc nếu cần
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-rabbit_pass} # <<< Thêm để ClientProxy đọc nếu cần
+      CART_SERVICE_URL: ${CART_SERVICE_URL:-http://cart_service:3003} # Tên service dùng gạch dưới
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:-http://product_service:3002} # Tên service dùng gạch dưới
+      PORT: 3004
+    networks:
+      - ecommerce_network
+    depends_on:
+      postgres_db:
+        condition: service_healthy # <<< Chờ DB healthy
+      rabbitmq_queue:
+        condition: service_healthy # <<< Chờ RabbitMQ healthy
+      cart_service:
+        condition: service_healthy # Tạm thời chỉ cần start
+      product_service: 
+        condition: service_healthy # Tạm thời chỉ cần start
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3004/orders/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s # Cho service này thời gian khởi động lâu hơn
+
+  notification_service:
+    build: ./services/notification-service
+    container_name: notification_service_container
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-rabbit_user}:${RABBITMQ_PASS:-rabbit_pass}@rabbitmq_queue:5672 # <<< Sử dụng user/pass từ env
+      RABBITMQ_USER: ${RABBITMQ_USER:-rabbit_user}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-rabbit_pass}
+      RABBITMQ_ORDERS_QUEUE: ${RABBITMQ_ORDERS_QUEUE:-orders_notifications_queue}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+      MAIL_FROM: ${MAIL_FROM}
+    networks:
+      - ecommerce_network
+    depends_on:
+      rabbitmq_queue:
+        condition: service_healthy # <<< Chờ RabbitMQ healthy
+    healthcheck: # <<< Thêm nếu có endpoint /health
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3006/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+# docker-compose.yml
+# ... (services: postgres_db, redis_cache, rabbitmq_queue, user_service, product_service, cart_service, order_service, notification_service) ...
+  payment_service: # <<< THÊM SERVICE MỚI
+    build: ./services/payment-service
+    container_name: payment_service_container
+    ports:
+      - "3005:3005" # Port mới
+    environment:
+      PORT: 3005
+      # VNPay Config
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE}
+      VNPAY_SECRET_KEY: ${VNPAY_SECRET_KEY}
+      VNPAY_END_POINT: ${VNPAY_END_POINT}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL}
+      VNPAY_IPN_URL: ${VNPAY_IPN_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      # RabbitMQ Config (nếu chưa global)
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    networks:
+      - ecommerce_network
+    depends_on:
+       rabbitmq_queue:
+         condition: service_healthy
+       # Thêm depends_on order_service nếu payment cần gọi check order
+       # order_service:
+       #   condition: service_started
+    healthcheck: # <<< THÊM HEALTHCHECK
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3005/payment/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      
+  # Sửa lại API Gateway để route /api/payment
+  api_gateway:
+    build: ./api-gateway
+    container_name: api_gateway_container
+    ports:
+      - "80:80"
+    networks:
+      - ecommerce_network
+    depends_on: # <<< Đợi TẤT CẢ backend services healthy
+      user_service: { condition: service_healthy }
+      product_service: { condition: service_healthy }
+      cart_service: { condition: service_healthy }
+      order_service: { condition: service_healthy }
+      payment_service: { condition: service_healthy }
+      # notification_service: { condition: service_healthy } # Nếu có healthcheck
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t"] # Kiểm tra cú pháp Nginx config
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      
+# ... (volumes, networks) ...
+# ecommerce-distributed-local/docker-compose.yml
+# ... (các services hiện có: postgres_db, redis_cache, ..., api_gateway) ...
+
+  # --- Logging Stack ---
+  # --- Logging Stack ---
+  loki:
+    image: grafana/loki:2.9.0 # Hoặc phiên bản mới hơn, ví dụ 3.0.0
+    container_name: loki_service
+    ports:
+      - "3100:3100" # Port để Grafana và Promtail kết nối
+    command: -config.file=/etc/loki/local-config.yaml
+    # volumes: # Có thể mount config file nếu muốn tùy chỉnh Loki sâu hơn
+    #   - ./loki-config.yml:/etc/loki/local-config.yaml
+    networks:
+      - ecommerce_network
+    # Không cần healthcheck phức tạp cho Loki ở mức demo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  promtail:
+    image: grafana/promtail:2.9.0 # Phiên bản tương ứng với Loki
+    container_name: promtail_service
+    volumes:
+      # QUAN TRỌNG: Mount Docker socket để Promtail đọc log từ các container khác
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount file config của Promtail
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - ecommerce_network
+    depends_on:
+      loki:
+        condition: service_healthy # Chờ Loki sẵn sàng
+
+  grafana:
+    image: grafana/grafana:latest # Luôn lấy phiên bản mới nhất
+    container_name: grafana_service
+    ports:
+      - "3000:3000" # Port truy cập Grafana UI
+    volumes:
+      - grafana_data:/var/lib/grafana # Lưu trữ dashboards, datasources...
+    environment:
+      # Cho phép truy cập ẩn danh để tiện demo, BỎ KHI DEPLOY THỰC TẾ
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      # (Tùy chọn) Tự động cấu hình Loki datasource
+      - GF_DATASOURCES_DEFAULT_NAME=Loki
+      - GF_DATASOURCES_0_NAME=Loki
+      - GF_DATASOURCES_0_TYPE=loki
+      - GF_DATASOURCES_0_URL=http://loki:3100 # Địa chỉ nội bộ của Loki
+      - GF_DATASOURCES_0_ACCESS=proxy
+      - GF_DATASOURCES_0_IS_DEFAULT=true
+    networks:
+      - ecommerce_network
+    depends_on:
+      loki:
+        condition: service_healthy # Chờ Loki sẵn sàng
+
+# --- Volumes & Networks ---
+# Định nghĩa Volumes để lưu dữ liệu persistent
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  grafana_data: # <<< ĐÃ THÊM volume cho Grafana
+
+# Định nghĩa mạng chung cho các container giao tiếp
+networks:
+  ecommerce_network:
+    driver: bridge
+
+

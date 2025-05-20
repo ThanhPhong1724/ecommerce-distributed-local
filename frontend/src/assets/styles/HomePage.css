@@ -1,0 +1,95 @@
+/* Featured Products Slider styles */
+.featured-products-slider {
+  margin: 0 -8px;
+  padding: 20px 0;
+}
+
+.featured-products-slider .slick-track {
+  display: flex !important;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.featured-products-slider .slick-slide {
+  height: auto; /* Cho phép slide tự điều chỉnh theo nội dung */
+}
+
+.featured-products-slider .product-image-container {
+  position: relative;
+  padding-top: 100%; /* Tạo tỷ lệ khung hình 1:1 */
+}
+
+.featured-products-slider img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Custom arrow styles */
+.featured-products-slider .slick-arrow {
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.featured-products-slider:hover .slick-arrow {
+  opacity: 1;
+}
+
+.featured-products-slider .slick-arrow:hover {
+  transform: translateY(-50%) scale(1.1);
+}
+
+.featured-products-slider .slick-disabled {
+  opacity: 0 !important;
+  cursor: not-allowed;
+}
+
+/* Container padding for arrows */
+@media (min-width: 1024px) {
+  .featured-products-slider {
+    margin: 0 10px;
+    padding: 20px;
+  }
+}
+
+/* Featured Products Scroll Section */
+.featured-products-container {
+  position: relative;
+  overflow-x: scroll; /* Thay đổi từ hidden thành scroll */
+  overflow-y: hidden; /* Ẩn thanh cuộn dọc */
+  cursor: grab;
+}
+
+.featured-products-container:active {
+  cursor: grabbing;
+}
+
+.featured-products-track {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem 0;
+  user-select: none;
+  min-width: min-content; /* Đảm bảo track không bị wrap */
+}
+
+.product-card {
+  flex: 0 0 300px;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.product-card.active {
+  opacity: 1;
+  transform: scale(1.05);
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

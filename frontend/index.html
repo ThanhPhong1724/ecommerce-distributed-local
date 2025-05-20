@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self' http://localhost:5173 http://localhost https://sandbox.vnpayment.vn;
+      style-src 'self' 'unsafe-inline' https://sandbox.vnpayment.vn;
+      img-src 'self' data: https: https://sandbox.vnpayment.vn;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sandbox.vnpayment.vn https://static.vnpay.vn;
+      frame-src https://sandbox.vnpayment.vn;
+      connect-src 'self' http://localhost http://localhost:5173 https://sandbox.vnpayment.vn;
+    "> -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self' http://localhost:5173 http://localhost https://sandbox.vnpayment.vn;
+      style-src 'self' 'unsafe-inline' https://sandbox.vnpayment.vn https://fonts.googleapis.com; 
+      font-src 'self' https://fonts.gstatic.com; 
+      img-src 'self' data: https: https://sandbox.vnpayment.vn;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sandbox.vnpayment.vn https://static.vnpay.vn;
+      frame-src https://sandbox.vnpayment.vn;
+      connect-src 'self' http://localhost http://localhost:5173 https://sandbox.vnpayment.vn;
+    ">
+    <body class="font-sans antialiased bg-brand-light text-gray-800"> 
+    <title>Vite + React + TS</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,58 @@
+/* src/index.css */
+
+/* 1. Import Google Fonts (đã đúng) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* 2. Import Tailwind CSS (đã đúng và NÊN là dòng DUY NHẤT liên quan đến Tailwind ở đây) */
+/* Dòng này đã bao gồm base (preflight), components, và utilities.
+   Nó sẽ tự động áp dụng font-family, antialiasing, và các reset cơ bản
+   dựa trên tailwind.config.js và Preflight.
+*/
+@import "tailwindcss";
+/* 
+   XÓA HOẶC COMMENT OUT TOÀN BỘ CÁC ĐỊNH NGHĨA CHO 'body' Ở ĐÂY.
+   Việc áp dụng class Tailwind trực tiếp lên thẻ <body> trong index.html
+   là cách tốt nhất để Tailwind kiểm soát các style cơ bản này.
+*/
+
+/* @import './styles.css'; */
+/* 
+body {
+  background-color: #F9FAFB; 
+  color: #111827; 
+}
+*/
+
+/* Biến CSS cho chiều cao Navbar (ví dụ) - CÓ THỂ GIỮ LẠI NẾU BẠN DÙNG */
+:root {
+  --navbar-height: 64px; /* Điều chỉnh chiều cao Navbar của bạn ở đây */
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #000000 !important;
+}
+
+/* 
+   KHÔNG NÊN có các style global khác ở đây trừ khi thực sự cần thiết
+   và bạn biết rõ chúng không xung đột với Tailwind.
+   Nếu cần, hãy sử dụng @layer base, @layer components, @layer utilities
+   để thêm các tùy chỉnh một cách có kiểm soát.
+*/
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
