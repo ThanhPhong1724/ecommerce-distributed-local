@@ -13,23 +13,28 @@ export class AuthService {
   ) {}
 
   // Hàm này được LocalStrategy gọi để xác thực user
-  async validateUser(email: string, pass: string): Promise<UserPayload | null> { 
-    const user = await this.usersService.findOneByEmail(email);
-    // So sánh password nhập vào với password đã hash trong DB
-    if (user && await user.validatePassword(pass)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { password, ...result } = user; // Trả về user không có password
-        return result;
+  async validateUser(email: string, pass: string): Promise<UserPayload | null> {
+    // Nên gọi hàm lấy user đầy đủ thông tin bao gồm role
+    const user = await this.usersService.findOneByEmailWithRole(email); // Giả sử có hàm này
+    if (user && (await user.validatePassword(pass))) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, ...result } = user;
+      // result sẽ bao gồm cả role từ user entity
+      return result as UserPayload; // Ép kiểu nếu cần
     }
-    return null; // Xác thực thất bại
+    return null;
   }
 
   // Hàm này được AuthController gọi sau khi LocalStrategy xác thực thành công
-  async login(user: UserPayload) {
-    // Payload chứa thông tin muốn đưa vào token (không nên chứa thông tin nhạy cảm)
-    const payload = { email: user.email, sub: user.id }; // sub là subject, thường là user id
+  async login(user: UserPayload) { // user ở đây đã là UserPayload, có trường role
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role, // <<< THÊM ROLE VÀO JWT PAYLOAD
+    };
     return {
-      access_token: this.jwtService.sign(payload), // Tạo JWT
+      access_token: this.jwtService.sign(payload),
     };
   }
+
 }

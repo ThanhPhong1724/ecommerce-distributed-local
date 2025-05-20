@@ -14,23 +14,20 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserPayload> {
-    // Kiểm tra email đã tồn tại chưa
-    const existingUser = await this.findOneByEmail(createUserDto.email);
+    const existingUser = await this.userRepository.findOne({ where: { email: createUserDto.email } });
     if (existingUser) {
       throw new ConflictException('Email đã tồn tại');
     }
 
-    // Tạo instance User mới từ DTO
-    // Password sẽ được tự động hash bởi hook @BeforeInsert trong entity
+    // UserRole.USER sẽ được tự động gán do default trong Entity
     const newUser = this.userRepository.create(createUserDto);
 
-    // Lưu user vào database
     const savedUser = await this.userRepository.save(newUser);
 
-    // Trả về thông tin user (loại bỏ password)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = savedUser;
-    return result;
+    // `result` ở đây sẽ tự động bao gồm `role` do spread operator lấy tất cả trường của `savedUser` trừ `password`
+    return result as UserPayload; // Có thể cần ép kiểu tường minh nếu TS chưa nhận ra
   }
 
   async findOneByEmail(email: string): Promise<User | null> {
@@ -45,5 +42,27 @@ export class UsersService {
      return user;
   }
 
+  // (Tùy chọn) Thêm hàm tìm user đầy đủ (bao gồm role) cho Auth Service
+  async findOneByEmailWithRole(email: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { email } });
+  }
+
+  async findOneByIdWithRole(id: string): Promise<User | null> {
+     return this.userRepository.findOne({ where: { id }});
+  }
   // Thêm các hàm khác nếu cần (findAll, update, remove...)
+  async findAllForAdmin(): Promise<UserPayload[]> {
+    const users = await this.userRepository.find({
+        // (Tùy chọn) Sắp xếp hoặc chọn các trường cần thiết
+        // select: ['id', 'email', 'firstName', 'lastName', 'role', 'createdAt'],
+        order: { createdAt: 'DESC' }
+    });
+    // Map để loại bỏ password và đảm bảo đúng kiểu UserPayload
+    return users.map(user => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password, ...result } = user;
+        return result as UserPayload;
+    });
+  }
+
 }

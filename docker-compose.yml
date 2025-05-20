@@ -124,7 +124,7 @@ services:
     networks:
       - ecommerce_network
     depends_on:
-      postgres_db:
+      postgres_db_user_product:
         condition: service_healthy # <<< Chờ DB healthy
       rabbitmq_queue:
         condition: service_healthy # <<< Chờ RabbitMQ healthy
@@ -141,11 +141,11 @@ services:
     ports:
       - "3002:3002"
     environment:
-      DATABASE_HOST: postgres_db
+      DATABASE_HOST: postgres_db_user_product # <<< Trỏ đến DB mới
       DATABASE_PORT: 5432
-      DATABASE_USER: ${DB_USER:-admin}
-      DATABASE_PASSWORD: ${DB_PASSWORD:-password}
-      DATABASE_NAME: ${DB_NAME:-ecommerce_db}
+      DATABASE_USER: ${DB_UP_USER:-user_product_admin}
+      DATABASE_PASSWORD: ${DB_UP_PASSWORD:-user_product_secret}
+      DATABASE_NAME: ${DB_UP_NAME:-ecommerce_up_db}
       REDIS_HOST: redis_cache
       REDIS_PORT: 6379
       CACHE_TTL: ${CACHE_TTL:-60}
@@ -153,7 +153,7 @@ services:
     networks:
       - ecommerce_network
     depends_on:
-      postgres_db:
+      postgres_db_user_product:
         condition: service_healthy # <<< Chờ DB healthy
       redis_cache:
         condition: service_healthy # <<< Chờ Redis healthy
@@ -182,6 +182,7 @@ services:
     depends_on:
       redis_cache:
         condition: service_healthy # <<< Chờ Redis healthy
+      product_service: { condition: service_healthy }
     healthcheck: # <<< THÊM HEALTHCHECK
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/cart/health || exit 1"]
       interval: 15s
@@ -196,11 +197,11 @@ services:
       - "3004:3004"
     environment:
       JWT_SECRET: ${JWT_SECRET}  # Đảm bảo biến này được set
-      DATABASE_HOST: postgres_db
+      DATABASE_HOST: postgres_db_order_cart # <<< Trỏ đến DB mới
       DATABASE_PORT: 5432
-      DATABASE_USER: ${DB_USER:-admin}
-      DATABASE_PASSWORD: ${DB_PASSWORD:-password}
-      DATABASE_NAME: ${DB_NAME:-ecommerce_db}
+      DATABASE_USER: ${DB_OC_USER:-order_cart_admin}
+      DATABASE_PASSWORD: ${DB_OC_PASSWORD:-order_cart_secret}
+      DATABASE_NAME: ${DB_OC_NAME:-ecommerce_oc_db}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-rabbit_user}:${RABBITMQ_PASS:-rabbit_pass}@rabbitmq_queue:5672 # <<< Sử dụng user/pass từ env
       RABBITMQ_USER: ${RABBITMQ_USER:-rabbit_user} # <<< Thêm để ClientProxy đọc nếu cần
       RABBITMQ_PASS: ${RABBITMQ_PASS:-rabbit_pass} # <<< Thêm để ClientProxy đọc nếu cần
@@ -210,7 +211,7 @@ services:
     networks:
       - ecommerce_network
     depends_on:
-      postgres_db:
+      postgres_db_order_cart:
         condition: service_healthy # <<< Chờ DB healthy
       rabbitmq_queue:
         condition: service_healthy # <<< Chờ RabbitMQ healthy
@@ -373,6 +374,8 @@ services:
 # Định nghĩa Volumes để lưu dữ liệu persistent
 volumes:
   postgres_data:
+  postgres_up_data: # <<< Volume mới
+  postgres_oc_data:   # <<< Volume mới
   redis_data:
   rabbitmq_data:
   grafana_data: # <<< ĐÃ THÊM volume cho Grafana

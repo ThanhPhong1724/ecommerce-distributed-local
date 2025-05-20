@@ -42,7 +42,7 @@ const LoginPage: React.FC = () => {
       dispatch({
         type: 'LOGIN_SUCCESS',
         // Use consistent naming (userId or id?) - check ProfileResponse
-        payload: { token, user: { id: userProfile.userId, email: userProfile.email } },
+        payload: { token, user: { id: userProfile.userId, email: userProfile.email, role: userProfile.role } },
       });
 
       navigate('/'); // Redirect to home page

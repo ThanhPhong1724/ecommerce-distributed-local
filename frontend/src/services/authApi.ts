@@ -1,5 +1,6 @@
 // src/services/authApi.ts
 import apiClient from './apiClient';
+import { UserRole } from '../contexts/AuthContext';
 
 // Định nghĩa kiểu trả về của API login (có token)
 interface LoginResponse {
@@ -11,6 +12,7 @@ interface LoginResponse {
 interface ProfileResponse {
     userId: string;
     email: string;
+    role: UserRole; // <<< THÊM ROLE VÀO ĐÂY
     // Thêm các trường khác nếu API profile trả về
 }
 

@@ -1,10 +1,11 @@
 // src/users/users.controller.ts
-import { Controller, Post, Body, Get, Request, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request, Logger, Post, Body, ValidationPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './users/dto/create-user.dto';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // Sẽ tạo guard này
 import { Public } from './auth/decorators/public.decorator'; // Decorator đánh dấu public route
-import { Put, HttpCode, HttpStatus } from '@nestjs/common'; // Thêm HttpCode, HttpStatus
+import { AdminGuard } from './auth/guards/admin.guard'; 
+import { UserPayload } from './users/interfaces/user-payload.interface';
 
 @Controller('users') // Route prefix là /users
 export class UsersController {
@@ -42,4 +43,14 @@ export class UsersController {
     // return this.usersService.findOneById(req.user.userId);
     return req.user; // Trả về thông tin từ token payload
   }
+
+  // --- ENDPOINT MỚI CHO ADMIN ---
+  @UseGuards(JwtAuthGuard, AdminGuard) // <<< Yêu cầu đăng nhập VÀ là Admin
+  @Get('admin/all') // Route: /api/users/admin/all
+  async getAllUsersForAdmin(): Promise<UserPayload[]> { // Trả về mảng UserPayload
+    // this.logger.log('Admin request to get all users');
+    console.log('Admin request to get all users');
+    return this.usersService.findAllForAdmin(); // <<< Sẽ tạo hàm này trong service
+  }
+  // --- KẾT THÚC ENDPOINT ADMIN ---
 }

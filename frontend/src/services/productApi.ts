@@ -1,5 +1,6 @@
 // src/services/productApi.ts
 import apiClient from './apiClient';
+import { UserRole } from '../contexts/AuthContext'; // Giả sử UserRole export từ đây hoặc file chung
 
 // Định nghĩa kiểu dữ liệu Product (nên giống backend hoặc tạo interface chung)
 export interface Product {
@@ -17,6 +18,8 @@ export interface Product {
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
+// Interface cho payload admin (có thể giống Product hoặc tùy chỉnh)
+export type AdminProductPayload = Product; // Hiện tại dùng chung kiểu Product
 
 export const getProducts = async (): Promise<Product[]> => {
   try {

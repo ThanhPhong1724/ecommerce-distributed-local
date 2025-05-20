@@ -5,6 +5,7 @@ import React, { createContext, useReducer, useContext, useEffect, useCallback } 
 interface User {
   id: string;
   email: string;
+  role: UserRole; // <<< THÊM ROLE
   // Thêm các trường khác nếu cần
 }
 
@@ -23,6 +24,11 @@ const initialState: AuthState = {
   token: null,
   loading: true // Bắt đầu với loading = true
 };
+
+export enum UserRole { // <<< Export enum này nếu chưa
+  USER = 'user',
+  ADMIN = 'admin',
+}
 
 // Thêm action mới
 type AuthAction =

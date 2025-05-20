@@ -1,0 +1,357 @@
+--
+-- PostgreSQL database dump (Order & Cart Service)
+--
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner:
+--
+
+COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
+
+
+--
+-- Name: orders_status_enum; Type: TYPE; Schema: public; Owner: order_cart_admin
+--
+
+CREATE TYPE public.orders_status_enum AS ENUM (
+    'pending',
+    'processing',
+    'completed',
+    'cancelled',
+    'failed'
+);
+
+
+ALTER TYPE public.orders_status_enum OWNER TO order_cart_admin; -- Đã đổi owner
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: order_items; Type: TABLE; Schema: public; Owner: order_cart_admin
+--
+
+CREATE TABLE public.order_items (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    "productId" character varying NOT NULL, -- Giữ lại, xử lý logic tham chiếu ở tầng ứng dụng
+    quantity integer NOT NULL,
+    price numeric(10,2) NOT NULL,
+    "productName" character varying NOT NULL,
+    "orderId" uuid NOT NULL
+);
+
+
+ALTER TABLE public.order_items OWNER TO order_cart_admin; -- Đã đổi owner
+
+--
+-- Name: orders; Type: TABLE; Schema: public; Owner: order_cart_admin
+--
+
+CREATE TABLE public.orders (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    "userId" character varying NOT NULL, -- Giữ lại, xử lý logic tham chiếu ở tầng ứng dụng
+    status public.orders_status_enum DEFAULT 'pending'::public.orders_status_enum NOT NULL,
+    "totalAmount" numeric(12,2) NOT NULL,
+    "shippingAddress" character varying,
+    "createdAt" timestamp without time zone DEFAULT now() NOT NULL,
+    "updatedAt" timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.orders OWNER TO order_cart_admin; -- Đã đổi owner
+
+--
+-- Data for Name: order_items; Type: TABLE DATA; Schema: public; Owner: order_cart_admin
+--
+
+COPY public.order_items (id, "productId", quantity, price, "productName", "orderId") FROM stdin;
+d2dab68a-8e20-4ac7-8788-e88d14e20d40	cb5d4813-97de-447f-b9b0-b2dece7d226b	3	260000.00	Áo Khoác Dù 3 Lớp	a970380f-bed6-4fbd-a768-b24acd6a4588
+df717773-75e5-4c54-8b84-fc26d4b987b2	4ad34712-cd92-43ab-98dc-5aa1ced12166	25	265000.00	Áo Khoác Dù 2 Lớp	a970380f-bed6-4fbd-a768-b24acd6a4588
+36904cce-f2d3-4831-86d2-de63a0a96f77	cb5d4813-97de-447f-b9b0-b2dece7d226b	3	260000.00	Áo Khoác Dù 3 Lớp	6fe4efb2-5292-4d90-ac47-1071b9a71ee4
+4e865bca-7146-4efa-b293-37a5a03f6587	4ad34712-cd92-43ab-98dc-5aa1ced12166	25	265000.00	Áo Khoác Dù 2 Lớp	6fe4efb2-5292-4d90-ac47-1071b9a71ee4
+d1f57511-1e91-4f6d-80fb-d101167624fa	cb5d4813-97de-447f-b9b0-b2dece7d226b	3	260000.00	Áo Khoác Dù 3 Lớp	6ab590d6-01c4-4772-8b18-01ba0f77f24a
+05bf2138-93af-4568-b1c5-9934cd6cda1e	4ad34712-cd92-43ab-98dc-5aa1ced12166	25	265000.00	Áo Khoác Dù 2 Lớp	6ab590d6-01c4-4772-8b18-01ba0f77f24a
+537e0cbf-814a-4514-9f63-a03392439779	4ad34712-cd92-43ab-98dc-5aa1ced12166	5	265000.00	Áo Khoác Dù 2 Lớp	763671fa-59c1-4346-afe9-ff5986802e8f
+2fa3bf5e-373d-4fff-8a76-aea707e986f4	4ad34712-cd92-43ab-98dc-5aa1ced12166	5	265000.00	Áo Khoác Dù 2 Lớp	447ccb28-337f-4c4d-b9c8-e2ffb6eb0eed
+eb4dac39-6f24-4cae-9e6b-6891cbb9ae80	4ad34712-cd92-43ab-98dc-5aa1ced12166	5	265000.00	Áo Khoác Dù 2 Lớp	005ca4ba-faa2-4230-90a0-7f564993e0e2
+be7c1c25-14a3-43b5-8764-601c2c818ad2	4ad34712-cd92-43ab-98dc-5aa1ced12166	8	265000.00	Áo Khoác Dù 2 Lớp	6f9c48df-0f92-436f-b231-cc7b4eca6ae2
+7a6bbc29-d7a4-40ff-a48b-eb824cfd424f	4ad34712-cd92-43ab-98dc-5aa1ced12166	2	265000.00	Áo Khoác Dù 2 Lớp	98be883c-b0e8-48c7-b42f-ca2bc2677a9d
+9a24dc0e-02b6-40e1-9382-ea6a4f1ba31e	4ad34712-cd92-43ab-98dc-5aa1ced12166	2	265000.00	Áo Khoác Dù 2 Lớp	ff86364b-1b8f-4d65-9b36-b40257be28f4
+36e1346d-2bc0-4f49-b6bc-1c9ef2dfeed5	4ad34712-cd92-43ab-98dc-5aa1ced12166	2	265000.00	Áo Khoác Dù 2 Lớp	4fdb2b56-300b-47ba-8fe6-2720237956d6
+1256e815-9375-4383-a517-2ed2054f7096	4ad34712-cd92-43ab-98dc-5aa1ced12166	12	265000.00	Áo Khoác Dù 2 Lớp	68e7d9c8-d080-40d9-8430-afd816aa8bf7
+e5f22409-6a4a-4b96-a3ed-96b227a35828	4ad34712-cd92-43ab-98dc-5aa1ced12166	14	265000.00	Áo Khoác Dù 2 Lớp	1c308b9f-51d9-4999-bbbf-836952a5b0f9
+164e7b00-7d05-4f08-bfb4-6504683e0988	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	2	450000.00	Quần Jeans Slimfit Xanh	1c308b9f-51d9-4999-bbbf-836952a5b0f9
+49b025c4-c683-47bb-85dd-3d8d3cfe9d8f	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	2	450000.00	Quần Jeans Slimfit Xanh	c19fb925-52fa-4b83-9e73-7cd673406840
+17da5172-2933-4170-9e3d-5f01c5b89a5c	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	29	450000.00	Quần Jeans Slimfit Xanh	3db55745-bbff-4722-93be-f6264320531f
+60dc2816-b6b3-4f9f-b3e3-28d1183751e5	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	9	450000.00	Quần Jeans Slimfit Xanh	899d8cb7-a08e-42ef-b3a7-b6cf532512aa
+168652d3-62b2-4b23-b043-eeeb9d43a101	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	9	450000.00	Quần Jeans Slimfit Xanh	be816daa-f73c-4771-978d-b970c43c3af4
+3a3dd09b-a0ef-4c8d-8cd4-e0f2234d0ecb	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	100	450000.00	Quần Jeans Slimfit Xanh	d1919406-9f44-4ace-84a3-3f0dde447acd
+8389f7d9-ced5-403a-ae01-4227e3d6067e	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	91	450000.00	Quần Jeans Slimfit Xanh	e0f5cfb8-5b5c-4f0b-a47e-b118c748c791
+6e870bd9-5850-43a2-b7ef-9ce3c5b63520	4ad34712-cd92-43ab-98dc-5aa1ced12166	3	265000.00	Áo Khoác Dù 2 Lớp	a5e09d5a-7077-44a0-b85c-a6090160655e
+bd70ab38-7651-41c1-8c97-3a09c43711bf	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	0762f51d-020e-4c55-bf4e-d593ef446188
+08e90679-08a3-4a9b-95d1-1785e2d0d42c	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	031ea662-7a4e-4f74-b115-75fca3693682
+30bf90e2-d65a-4447-9a2a-a09198ec4d83	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	6a3164f1-29db-48c5-94fe-646040a04608
+5d211662-3740-4546-b1af-010ea6c75199	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	6a3164f1-29db-48c5-94fe-646040a04608
+b58c09e5-80a0-446a-8970-fee540f0dc88	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	6a3164f1-29db-48c5-94fe-646040a04608
+bcc84726-7f10-43df-96d8-f4cb86ad6a0e	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	aef5d172-528c-4068-b911-10bf644feea9
+117daf0b-dab5-4cd9-8afe-2bc2ee28a658	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	aef5d172-528c-4068-b911-10bf644feea9
+b0bd7e48-f3ac-4640-afa1-9072082192e5	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	aef5d172-528c-4068-b911-10bf644feea9
+7e1991cc-7c8a-474d-a1f0-1347ff8f1077	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	8ee2aec5-e7ec-4d39-8c8f-cf9eeef05b27
+4f1a0239-d439-42e4-bdbb-5841182af156	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	8ee2aec5-e7ec-4d39-8c8f-cf9eeef05b27
+26e73ef0-5d71-471f-bdf1-e1abbd0b4f0d	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	8ee2aec5-e7ec-4d39-8c8f-cf9eeef05b27
+7f48de21-0143-4b43-befe-be29ced80cf2	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	baba8ddf-6303-4ad9-836c-6c1920b3935f
+30298740-1183-4cde-b457-e2bb54cd17c6	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	baba8ddf-6303-4ad9-836c-6c1920b3935f
+70a88d5a-b068-4d62-b0b8-875a41c3eb64	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	baba8ddf-6303-4ad9-836c-6c1920b3935f
+7db3841e-3dff-4396-a5f2-4552ab9c246c	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	18238ec9-17b5-4a95-91e9-1c1adcf5cd6c
+31f5be07-de8f-4cf1-b698-c8e16347053f	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	18238ec9-17b5-4a95-91e9-1c1adcf5cd6c
+78f53cd7-4436-4a80-af58-0209bca89a78	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	18238ec9-17b5-4a95-91e9-1c1adcf5cd6c
+17bf79d0-c14a-4452-b0ef-f7e0fe3326f2	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	9daf2895-2a39-4289-9953-153f3157a05b
+cd8009cb-deda-4a5c-ae47-ab08fe39c0c0	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	9daf2895-2a39-4289-9953-153f3157a05b
+4ae09c4a-9886-4cb9-98be-f1a219217abc	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	9daf2895-2a39-4289-9953-153f3157a05b
+54457c29-6423-486a-b196-31fb1a655f4b	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	1406226e-6379-4d74-867b-382894bd3a5b
+c81d2b31-9214-4e37-92e1-09c6cb379da3	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	1406226e-6379-4d74-867b-382894bd3a5b
+768d5831-7231-4c16-88bd-a8e24fecf709	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	1406226e-6379-4d74-867b-382894bd3a5b
+bbd172a7-4a9e-4859-8159-12f99cf8218b	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	f48f057c-74c2-4c32-b958-10b009a69ca1
+48ad61a9-dd58-4cea-90fe-a56759e1fff5	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	f48f057c-74c2-4c32-b958-10b009a69ca1
+46da5c5c-2fe0-4ddf-a5f3-b96a5cc51cf5	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	f48f057c-74c2-4c32-b958-10b009a69ca1
+913b6719-bd2b-4c3f-9444-8d529c5ba317	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	30dab745-516e-4c7e-b491-1d61ec2c2cd9
+7d540ed9-b727-4de1-a298-ed95d1c72a84	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	30dab745-516e-4c7e-b491-1d61ec2c2cd9
+d5480df8-c404-4753-b082-f276057d03aa	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	30dab745-516e-4c7e-b491-1d61ec2c2cd9
+8e5db382-8cc4-43db-803e-cafa6490a908	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	f506353f-17c5-4f2f-bc29-e7753f9d38a4
+70f53e32-ee05-4619-a0cd-a455fd92dac4	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	f506353f-17c5-4f2f-bc29-e7753f9d38a4
+798a80b9-1279-4c8b-ad32-540503998146	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	f506353f-17c5-4f2f-bc29-e7753f9d38a4
+9236e9d5-e409-4eef-8219-8ed6c1464529	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	6d2f17f3-2101-4aba-8bc1-2ba4a3a38675
+2ffcc073-d911-4c03-bc08-d9fbf6984d52	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	6d2f17f3-2101-4aba-8bc1-2ba4a3a38675
+9be51e10-732f-4eb0-a38f-3d5dea219aef	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	6d2f17f3-2101-4aba-8bc1-2ba4a3a38675
+c97be59d-03e5-421e-ad17-573bb76bf238	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	6aac4637-ab19-436b-a977-130863da9852
+a71f5c7f-3b2a-4f7c-8b04-84ebf02b320b	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	6aac4637-ab19-436b-a977-130863da9852
+abbe0b8e-4231-45a1-8561-041c23a70c9a	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	c13b6ce3-a2ce-487c-ae27-ffd817ca6d54
+d9dc45b1-b34c-4a77-82cc-8f066e3b162b	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	c13b6ce3-a2ce-487c-ae27-ffd817ca6d54
+f3bf99ce-5eba-470a-a872-bb71c01fa611	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	9f722391-b8f6-4261-8e21-712a4fa8bab0
+ddf0a79e-aea6-4d2a-b0ba-28b4c8e0b665	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	60e5384e-0444-4d79-aa03-2439b5733b91
+64ce175a-f250-489d-996a-82fa8de7994a	cb5d4813-97de-447f-b9b0-b2dece7d226b	3	260000.00	Áo Khoác Dù 3 Lớp	7efb3de1-b566-4ce3-b95d-299b5ac4a89d
+e0ab3a1e-a594-460b-80e8-8f74c62dd813	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	bcb63645-5627-4bcc-b5a2-60aa68b3775d
+118c2650-9dd4-403e-81d2-a391f5307878	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	d26d9e18-3f69-4280-9938-f5393a720577
+82eb7f05-5400-4884-b0e0-1ae70316eec8	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	bc796311-9d01-4fc6-8730-7be7dbd3d8d2
+65d25d38-ca10-44b5-9060-c4d4b0da94ae	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	5d01b99c-9f5b-4ee7-8da4-794e1f73a2c5
+cebca99f-1bb1-4b73-9247-cb6fd48df7ff	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	70c2b82f-5db3-476d-9f9f-5b342a909863
+531a55b5-ebe3-470b-a3b8-c77f7409bbc0	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	6c8aa083-ccc1-47d7-926b-6eab45d3fb36
+006e64cb-b7e7-489f-bc7d-0cfed9e37d17	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	00140c15-737f-451d-9e0a-caffabdc380d
+f747e685-549d-46df-889b-c67d41e99535	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	41a5c6bc-ed4c-4307-8160-3ef6119ff5ec
+577c7b86-0da7-47d7-b7c8-24dba1d06d1b	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	586243f5-02bf-47e4-8b33-9d673755c732
+fd121c22-2b17-4223-bcd4-df9b03bf783c	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	d2104bd5-f704-4f09-970b-589592355779
+2de40df2-618e-4fda-982b-ff2e2c5a1aed	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	77522b5d-e5b9-4049-8ea4-702e3c5ee659
+a36d255e-8b4c-46c8-ae7e-09ec1a2943c1	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	f1046fe8-428d-4ecd-a2de-7ece98c82d4a
+b140b49c-6084-46f6-ad42-2df53bdc1b79	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	a8defb85-5c63-457a-aa0c-1dc9b9067b42
+5773363b-39d2-46d3-a9a6-23c6d66d95b6	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	a73b19c5-7625-4dde-bccc-3f11d5571b1d
+05f3638b-0164-4a33-8baf-55478d0abec1	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	a73b19c5-7625-4dde-bccc-3f11d5571b1d
+50d39c8b-3ee0-4741-a8ca-fa880706a71b	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	02f76340-2cc3-4099-8987-e342fd334229
+27c1e866-c446-4f15-9499-32d59ea663c9	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	817530fb-cbf8-412e-b489-6c2c08a5eac1
+fd30e7af-a0ab-4fdb-834c-a2fedada3823	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	9377c480-4d1f-4cfa-9c96-c0d982d2d5d0
+00e3ecc4-1e3a-420e-b9e3-25b8df20de47	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	c2b218d2-a439-402d-9039-2bd3b32ceeda
+720331e7-234c-4982-b17d-26fe128ab987	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	5ea4f104-c0ac-493f-9cc5-00a1195b62a8
+16a64b5a-a00b-405a-b2bf-6be144eb5cf2	a3c738bb-80d5-4bb6-9f46-afcbf3e2d37e	1	450000.00	Quần Jeans Slimfit Xanh	dda9e46e-4c85-4785-9d29-a1254a5bdfc0
+9731d45b-527f-4331-915a-c13c943fa6b4	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	dda9e46e-4c85-4785-9d29-a1254a5bdfc0
+9cf295c6-25fe-4ad2-b25f-eda6da1e04f7	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	bd51d352-2a5d-4397-8b63-148b9bfefb84
+f320bbbf-fde2-4cd1-8fb0-f4f6862848bb	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	bd51d352-2a5d-4397-8b63-148b9bfefb84
+7c3ee470-cbd7-411c-a933-240e92bbb036	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	3dbf6b9e-8560-4c61-8876-cabc438ae3d8
+e503f5f4-c5cc-48cb-962d-85b86b165e99	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	3dbf6b9e-8560-4c61-8876-cabc438ae3d8
+d83162de-bceb-4619-8dea-e0d35381bb7b	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	cfe1115f-3b35-493f-af12-2ff12d92db5e
+5fc204b4-b052-47a2-a499-9193fd4e04a7	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	cfe1115f-3b35-493f-af12-2ff12d92db5e
+4b9af047-5a0d-4cf4-bdec-2fd51bb075c7	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	cfe1115f-3b35-493f-af12-2ff12d92db5e
+85c2ae5d-fd76-43ab-ac5b-7fd16f87635e	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	cfe1115f-3b35-493f-af12-2ff12d92db5e
+2842d017-ecf0-474c-b4ff-f6ad5dd53b7f	303cc3b3-9157-46b4-a901-90c185b26361	1	299000.00	Áo Khoác Bomber Nữ	7b552a0e-12a0-492a-84f9-e4a552f3c921
+f3adbfe4-e59b-4a68-a3df-f9288d8900f1	303cc3b3-9157-46b4-a901-90c185b26361	1	299000.00	Áo Khoác Bomber Nữ	7b552a0e-12a0-492a-84f9-e4a552f3c921
+c9997d20-9cf4-4ce2-9ae4-119b74839f8d	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	4795f591-54ac-43d8-af00-f92af650d23c
+af2123c2-3f4a-40c8-a6b7-7cd580225435	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	4795f591-54ac-43d8-af00-f92af650d23c
+df6ea3e9-6549-45a2-a87e-f4d52faf9caf	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	65cff4fa-88e3-4c26-afd5-c9553d69e724
+47eecac7-8562-4731-b13f-250009fc552c	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	65cff4fa-88e3-4c26-afd5-c9553d69e724
+8c468475-39b1-43c9-aa6e-77bdb7dea754	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	d56ca9ee-0021-4723-8b0e-49dab1364daf
+3d4370f6-b4d1-44fe-bbf3-79eb8a141714	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	d56ca9ee-0021-4723-8b0e-49dab1364daf
+bb8d9d95-b7c8-41cc-8293-7786af9178b0	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	8efb0ffb-54c4-4468-aec2-f637e3866814
+5b5c5f9f-8211-4da5-9bdb-6a0c46b17b13	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	8efb0ffb-54c4-4468-aec2-f637e3866814
+a2d5600e-e8b9-4269-a132-af1c6d3ad40d	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	7c84bc7a-fa41-4b75-b3b0-6c37ccf75c45
+c7581ebe-ebc8-4264-9dc7-a47e78e23b30	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	7c84bc7a-fa41-4b75-b3b0-6c37ccf75c45
+bdc7aa50-4012-4463-8cb2-a92dbd39c04c	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	b5c9579a-a5f9-4d4a-b694-f0682fad3bec
+925a82af-6da8-4a0d-9dc1-842e0032a341	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	b5c9579a-a5f9-4d4a-b694-f0682fad3bec
+cb50606e-3107-4ab8-9600-eb4d9bd421d3	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	b5c9579a-a5f9-4d4a-b694-f0682fad3bec
+c43fc95a-6fe5-4f33-8e6f-6dc2663a0d33	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	b5c9579a-a5f9-4d4a-b694-f0682fad3bec
+6c7c689b-b4cd-47a2-9d68-e3b377caa283	875ff59b-149d-4cbf-a012-e3cddae5a0d1	1	450000.00	Áo Khoác Jean Nam	569467e7-a0fb-42b4-a5bc-913b14d843db
+5768850d-2e99-49ab-b166-e7d6639e8449	875ff59b-149d-4cbf-a012-e3cddae5a0d1	1	450000.00	Áo Khoác Jean Nam	569467e7-a0fb-42b4-a5bc-913b14d843db
+754f4ff5-aa9f-4ecd-ba63-367505015e69	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	a499039a-834b-4efe-a09a-163845c1b593
+b97f20cb-5b7c-482b-a430-75b7755d4c39	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	a499039a-834b-4efe-a09a-163845c1b593
+33b2ef4d-0fbd-4154-8d4a-c94cc7b1b6f3	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	6d4947fe-f1bf-415d-8716-a05ad1622bdb
+d9ee6ecc-3c6f-49dc-97f8-09836241dbf2	4ad34712-cd92-43ab-98dc-5aa1ced12166	1	265000.00	Áo Khoác Dù 2 Lớp	6d4947fe-f1bf-415d-8716-a05ad1622bdb
+d824768a-5c21-4079-bf43-7bf294295f2d	0cd36088-ce10-4cce-a9ab-c0b1072a9cb7	1	450000.00	Áo Khoác Jean Nam	5388c9de-a7b9-446c-b0eb-d430d1836022
+fd7701c8-84ec-4445-94ad-e19c16cc8805	0cd36088-ce10-4cce-a9ab-c0b1072a9cb7	1	450000.00	Áo Khoác Jean Nam	5388c9de-a7b9-446c-b0eb-d430d1836022
+2e4b5d11-831b-4348-abef-5744f7aaeb33	f57b8f15-a15f-49b7-979e-cb6595714d12	1	150000.00	Áo Thun Basic	ada79702-eb8a-4189-bb54-1042607bf42e
+8985f887-574e-45fc-83d9-5f9caff90b74	f57b8f15-a15f-49b7-979e-cb6595714d12	1	150000.00	Áo Thun Basic	ada79702-eb8a-4189-bb54-1042607bf42e
+7cbb5329-3612-479a-a19d-1f87cb8f5194	d9b48e9c-7c3f-4ff4-bb91-98295024c157	1	355000.00	Áo Khoác Cardigan	86960251-cd7b-4357-9f4c-762f4bc32b3a
+533e69a1-9902-44d0-8c4d-552879c844bd	d9b48e9c-7c3f-4ff4-bb91-98295024c157	1	355000.00	Áo Khoác Cardigan	86960251-cd7b-4357-9f4c-762f4bc32b3a
+6697d7ae-0a0d-42f6-9246-b7e9fc8ba19f	303cc3b3-9157-46b4-a901-90c185b26361	1	299000.00	Áo Khoác Bomber Nữ	51eb30e4-dc9c-44b0-807f-0a768e09b03e
+671ff6f9-ab2c-4ca5-ba1f-b2bd5e34b2b6	303cc3b3-9157-46b4-a901-90c185b26361	1	299000.00	Áo Khoác Bomber Nữ	51eb30e4-dc9c-44b0-807f-0a768e09b03e
+6b45d576-ccda-4f15-ac32-cc813f2961a0	303cc3b3-9157-46b4-a901-90c185b26361	1	299000.00	Áo Khoác Bomber Nữ	6f87e0d7-f549-4174-99c4-bb8f45827851
+db74e5fe-a19a-496f-accb-b1ee4737ff8d	303cc3b3-9157-46b4-a901-90c185b26361	1	299000.00	Áo Khoác Bomber Nữ	6f87e0d7-f549-4174-99c4-bb8f45827851
+b2147e23-b9c8-4bd4-85c0-c6d0612de19d	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	c1f80039-2f64-4d14-bcc0-384c1b31f233
+2d3e85b4-c9d1-4596-aed6-f435f9bc8201	c59b9f2f-dccc-4344-8139-ff3e1a50b636	1	399000.00	Áo Khoác Bomber Nam	c1f80039-2f64-4d14-bcc0-384c1b31f233
+2660cc4d-e79e-491b-9ab3-dfa1cc4dcf28	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	ec0fa529-5168-4c07-a4e5-6befc353a54c
+a40b472f-03ee-4d40-8696-4f31af0fe575	7981b901-46ad-49a2-a1d7-d2b820918b6c	1	289000.00	Áo Khoác Dù Nữ	ec0fa529-5168-4c07-a4e5-6befc353a54c
+99b7e95e-6c2e-4c2b-87f5-cc1da6d808d6	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	ec0fa529-5168-4c07-a4e5-6befc353a54c
+fee38c15-edfb-4160-b15d-ce2db4c63c6e	7981b901-46ad-49a2-a1d7-d2b820918b6c	1	289000.00	Áo Khoác Dù Nữ	ec0fa529-5168-4c07-a4e5-6befc353a54c
+dbe64e38-e180-4bd3-9265-f632275e846c	7981b901-46ad-49a2-a1d7-d2b820918b6c	1	289000.00	Áo Khoác Dù Nữ	41a85f25-73f5-4d9a-9643-d9dcbb1f58dc
+55c12b3a-8f79-4a92-96d8-7b98187030d0	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	0a18326a-71f5-4d85-a9d8-49c6f92697a5
+24068e6d-65b8-46f0-8d6b-ca727d4df51b	7981b901-46ad-49a2-a1d7-d2b820918b6c	1	289000.00	Áo Khoác Dù Nữ	bd255794-9e5c-4ff4-b29b-58521e6275e5
+18a977c1-5047-4037-9e21-ae2e6f181406	86ab3956-95e3-41ba-8790-6ae263a74742	1	359000.00	Áo Khoác Cardigan	64e4fced-c670-4702-b454-d3c36d1f3d2e
+05d74f78-a5d3-4be0-bce0-7353f13bbc70	875ff59b-149d-4cbf-a012-e3cddae5a0d1	1	450000.00	Áo Khoác Jean Nam	61bc361a-1617-448c-a9c0-ad9c199a49b7
+4f346fd0-cfaf-497e-9843-2ebc24853d48	cb5d4813-97de-447f-b9b0-b2dece7d226b	1	260000.00	Áo Khoác Dù 3 Lớp	e53ce1d9-1dd2-4602-87cb-4609665c2fa6
+17264b0d-90a4-4aed-aae1-6be4a3c496ab	20aa660c-c8fa-4005-8467-3cbd79c6def2	1	299000.00	Áo Khoác Dù 2 Lớp Unisex	d0be3a81-40d0-4a0a-bcb0-9e0a6d5dfb10
+4e1d1720-ecc9-4df1-9758-51909ee7038b	20aa660c-c8fa-4005-8467-3cbd79c6def2	1	299000.00	Áo Khoác Dù 2 Lớp Unisex	65492bbc-9b52-411b-8fe2-0f8dbafbab73
+\.
+
+
+--
+-- Data for Name: orders; Type: TABLE DATA; Schema: public; Owner: order_cart_admin
+--
+
+COPY public.orders (id, "userId", status, "totalAmount", "shippingAddress", "createdAt", "updatedAt") FROM stdin;
+a970380f-bed6-4fbd-a768-b24acd6a4588	test-user-id-123	pending	7405000.00	Default Address	2025-04-28 11:40:45.729858	2025-04-28 11:40:45.729858
+6fe4efb2-5292-4d90-ac47-1071b9a71ee4	test-user-id-123	pending	7405000.00	123 Đường ABC, Quận XYZ	2025-04-28 11:41:28.844784	2025-04-28 11:41:28.844784
+6ab590d6-01c4-4772-8b18-01ba0f77f24a	test-user-id-123	pending	7405000.00	123 Đường ABC, Quận XYZ123	2025-04-28 12:30:47.83736	2025-04-28 12:30:47.83736
+763671fa-59c1-4346-afe9-ff5986802e8f	test-user-id-123	pending	1325000.00	123 Đường ABC, Quận XYZ123	2025-04-28 13:56:12.082787	2025-04-28 13:56:12.082787
+447ccb28-337f-4c4d-b9c8-e2ffb6eb0eed	test-user-id-123	pending	1325000.00	123 Đường ABC, Quận XYZ123 Huyện 5	2025-04-28 15:12:14.367859	2025-04-28 15:12:14.367859
+6f9c48df-0f92-436f-b231-cc7b4eca6ae2	test-user-id-123	pending	2120000.00	123 Đường ABC, Quận XYZ123 Huyện 6	2025-04-28 15:41:04.337127	2025-04-28 15:41:04.337127
+98be883c-b0e8-48c7-b42f-ca2bc2677a9d	test-user-id-123	pending	530000.00	123 Đường ABC, Quận XYZ123 Huyện 68	2025-04-28 15:46:36.630569	2025-04-28 15:46:36.630569
+ff86364b-1b8f-4d65-9b36-b40257be28f4	test-user-id-123	pending	530000.00	123 Đường ABC, Quận XYZ123 Huyện 68	2025-04-28 15:58:39.760613	2025-04-28 15:58:39.760613
+4fdb2b56-300b-47ba-8fe6-2720237956d6	test-user-id-123	pending	530000.00	123 Đường ABC, Quận XYZ123 Huyện 698	2025-04-28 16:54:23.05347	2025-04-28 16:54:23.05347
+68e7d9c8-d080-40d9-8430-afd816aa8bf7	test-user-id-123	pending	3180000.00	123 Đường ABC, Quận Huyện 698	2025-04-28 16:56:15.273124	2025-04-28 16:56:15.273124
+1c308b9f-51d9-4999-bbbf-836952a5b0f9	test-user-id-123	pending	4610000.00	Default Address	2025-05-04 06:26:50.915045	2025-05-04 06:26:50.915045
+c19fb925-52fa-4b83-9e73-7cd673406840	test-user-id-123	pending	900000.00	Default Address	2025-05-04 06:27:45.667663	2025-05-04 06:27:45.667663
+3db55745-bbff-4722-93be-f6264320531f	test-user-id-123	pending	13050000.00	Default Address	2025-05-04 07:08:03.872471	2025-05-04 07:08:03.872471
+899d8cb7-a08e-42ef-b3a7-b6cf532512aa	test-user-id-123	pending	4050000.00	Default Address	2025-05-04 07:11:29.870587	2025-05-04 07:11:29.870587
+be816daa-f73c-4771-978d-b970c43c3af4	test-user-id-123	pending	4050000.00	Default Address	2025-05-04 13:07:22.710895	2025-05-04 13:07:22.710895
+d1919406-9f44-4ace-84a3-3f0dde447acd	test-user-id-123	pending	45000000.00	Default Address	2025-05-04 13:14:26.159792	2025-05-04 13:14:26.159792
+e0f5cfb8-5b5c-4f0b-a47e-b118c748c791	test-user-id-123	pending	40950000.00	Default Address	2025-05-04 13:57:05.137339	2025-05-04 13:57:05.137339
+a5e09d5a-7077-44a0-b85c-a6090160655e	test-user-id-123	pending	795000.00	Default Address	2025-05-04 15:04:09.837241	2025-05-04 15:04:09.837241
+0762f51d-020e-4c55-bf4e-d593ef446188	test-user-id-123	pending	265000.00	Default Address	2025-05-04 15:21:15.899367	2025-05-04 15:21:15.899367
+031ea662-7a4e-4f74-b115-75fca3693682	test-user-id-123	pending	265000.00	Default Address	2025-05-04 15:29:44.25129	2025-05-04 15:29:44.25129
+6a3164f1-29db-48c5-94fe-646040a04608	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	Default Address	2025-05-06 05:59:33.041617	2025-05-06 05:59:33.041617
+aef5d172-528c-4068-b911-10bf644feea9	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	Default Address	2025-05-06 06:10:26.808782	2025-05-06 06:10:26.808782
+8ee2aec5-e7ec-4d39-8c8f-cf9eeef05b27	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 06:24:09.526962	2025-05-06 06:24:09.526962
+baba8ddf-6303-4ad9-836c-6c1920b3935f	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 06:26:05.115851	2025-05-06 06:26:05.115851
+18238ec9-17b5-4a95-91e9-1c1adcf5cd6c	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 07:28:31.318678	2025-05-06 07:28:31.318678
+9daf2895-2a39-4289-9953-153f3157a05b	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 07:32:44.158723	2025-05-06 07:32:44.158723
+1406226e-6379-4d74-867b-382894bd3a5b	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 07:37:28.362037	2025-05-06 07:37:28.362037
+f48f057c-74c2-4c32-b958-10b009a69ca1	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 08:12:01.391639	2025-05-06 08:12:01.391639
+30dab745-516e-4c7e-b491-1d61ec2c2cd9	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 08:44:53.081818	2025-05-06 08:44:53.081818
+f506353f-17c5-4f2f-bc29-e7753f9d38a4	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 08:45:03.886221	2025-05-06 08:45:03.886221
+6d2f17f3-2101-4aba-8bc1-2ba4a3a38675	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	975000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 08:45:19.379379	2025-05-06 08:45:19.379379
+6aac4637-ab19-436b-a977-130863da9852	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	715000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 09:10:03.615535	2025-05-06 09:10:03.615535
+c13b6ce3-a2ce-487c-ae27-ffd817ca6d54	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	715000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 09:20:16.501674	2025-05-06 09:20:16.501674
+005ca4ba-faa2-4230-90a0-7f564993e0e2	test-user-id-1234	pending	1325000.00	123 Đường ABC, Quận XYZ123 Huyện 5	2025-04-28 15:31:15.650231	2025-04-28 15:31:15.650231
+9f722391-b8f6-4261-8e21-712a4fa8bab0	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	450000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 15:52:57.220663	2025-05-06 15:52:57.220663
+60e5384e-0444-4d79-aa03-2439b5733b91	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	450000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 15:57:44.102376	2025-05-06 15:57:44.102376
+7efb3de1-b566-4ce3-b95d-299b5ac4a89d	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	780000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-06 16:27:38.161037	2025-05-06 16:27:38.161037
+bcb63645-5627-4bcc-b5a2-60aa68b3775d	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	260000.00	Hn Hd 22 Nguyen Trai	2025-05-06 16:59:20.057421	2025-05-06 16:59:20.057421
+d26d9e18-3f69-4280-9938-f5393a720577	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	hn	2025-05-06 17:04:13.599162	2025-05-06 17:04:13.599162
+bc796311-9d01-4fc6-8730-7be7dbd3d8d2	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	260000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 02:45:27.151194	2025-05-07 02:45:27.151194
+5d01b99c-9f5b-4ee7-8da4-794e1f73a2c5	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 03:14:50.467079	2025-05-07 03:14:50.467079
+70c2b82f-5db3-476d-9f9f-5b342a909863	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 03:41:04.000399	2025-05-07 03:41:04.000399
+6c8aa083-ccc1-47d7-926b-6eab45d3fb36	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	260000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 03:45:47.146368	2025-05-07 03:45:47.146368
+00140c15-737f-451d-9e0a-caffabdc380d	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	450000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 03:55:07.102911	2025-05-07 03:55:07.102911
+41a5c6bc-ed4c-4307-8160-3ef6119ff5ec	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	450000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 03:55:07.856333	2025-05-07 03:55:07.856333
+586243f5-02bf-47e4-8b33-9d673755c732	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	450000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 03:55:28.431809	2025-05-07 03:55:28.431809
+d2104bd5-f704-4f09-970b-589592355779	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	450000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 04:17:29.603961	2025-05-07 04:17:29.603961
+77522b5d-e5b9-4049-8ea4-702e3c5ee659	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	gn	2025-05-07 04:31:21.219845	2025-05-07 04:31:21.219845
+f1046fe8-428d-4ecd-a2de-7ece98c82d4a	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 04:49:55.496297	2025-05-07 04:49:55.496297
+a8defb85-5c63-457a-aa0c-1dc9b9067b42	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	265000.00	ghdb	2025-05-07 07:46:21.041244	2025-05-07 07:46:50.59615
+a73b19c5-7625-4dde-bccc-3f11d5571b1d	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	525000.00	fsfdfs	2025-05-07 07:57:40.169824	2025-05-07 07:58:02.811623
+02f76340-2cc3-4099-8987-e342fd334229	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	265000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 10:26:22.414562	2025-05-07 10:27:02.645997
+817530fb-cbf8-412e-b489-6c2c08a5eac1	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 12:51:05.632112	2025-05-07 12:51:05.632112
+9377c480-4d1f-4cfa-9c96-c0d982d2d5d0	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 12:56:20.147207	2025-05-07 12:56:20.147207
+c2b218d2-a439-402d-9039-2bd3b32ceeda	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	260000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 13:06:51.729338	2025-05-07 13:06:51.729338
+5ea4f104-c0ac-493f-9cc5-00a1195b62a8	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	265000.00	dfadsfa	2025-05-07 13:11:26.6659	2025-05-07 13:11:26.6659
+dda9e46e-4c85-4785-9d29-a1254a5bdfc0	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	710000.00	dagdsa	2025-05-07 13:26:11.14758	2025-05-07 13:26:36.632084
+bd51d352-2a5d-4397-8b63-148b9bfefb84	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	525000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 15:37:59.415395	2025-05-07 15:38:44.578088
+3dbf6b9e-8560-4c61-8876-cabc438ae3d8	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	525000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 15:49:01.105156	2025-05-07 15:49:27.562009
+cfe1115f-3b35-493f-af12-2ff12d92db5e	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	1050000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-07 16:52:00.597211	2025-05-07 16:52:30.623768
+7b552a0e-12a0-492a-84f9-e4a552f3c921	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	598000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-09 13:12:34.424997	2025-05-09 13:12:34.424997
+4795f591-54ac-43d8-af00-f92af650d23c	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	798000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-09 23:58:03.369949	2025-05-09 23:58:03.369949
+65cff4fa-88e3-4c26-afd5-c9553d69e724	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	798000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-09 23:59:27.71614	2025-05-09 23:59:27.71614
+d56ca9ee-0021-4723-8b0e-49dab1364daf	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	798000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 00:02:11.259098	2025-05-10 00:02:11.259098
+8efb0ffb-54c4-4468-aec2-f637e3866814	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	798000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 00:03:04.357765	2025-05-10 00:03:04.357765
+7c84bc7a-fa41-4b75-b3b0-6c37ccf75c45	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	798000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 00:09:01.667573	2025-05-10 00:09:01.667573
+b5c9579a-a5f9-4d4a-b694-f0682fad3bec	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	1318000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 00:09:32.8793	2025-05-10 00:09:32.8793
+569467e7-a0fb-42b4-a5bc-913b14d843db	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	900000.00	HNSDA	2025-05-10 00:23:37.520222	2025-05-10 00:23:37.520222
+a499039a-834b-4efe-a09a-163845c1b593	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	530000.00	ádfsdfsf	2025-05-10 00:25:44.484542	2025-05-10 00:25:44.484542
+6d4947fe-f1bf-415d-8716-a05ad1622bdb	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	530000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 00:26:04.270117	2025-05-10 00:26:04.270117
+5388c9de-a7b9-446c-b0eb-d430d1836022	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	900000.00	sadsa	2025-05-10 00:26:33.598557	2025-05-10 00:26:33.598557
+ada79702-eb8a-4189-bb54-1042607bf42e	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	300000.00	jjkhHCM	2025-05-10 00:36:08.30733	2025-05-10 00:36:08.30733
+86960251-cd7b-4357-9f4c-762f4bc32b3a	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	710000.00	adfs	2025-05-10 00:46:31.395029	2025-05-10 00:46:31.395029
+51eb30e4-dc9c-44b0-807f-0a768e09b03e	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	598000.00	ewrwrew	2025-05-10 01:00:24.665207	2025-05-10 01:00:24.665207
+6f87e0d7-f549-4174-99c4-bb8f45827851	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	598000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 01:02:50.688406	2025-05-10 01:02:50.688406
+c1f80039-2f64-4d14-bcc0-384c1b31f233	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	798000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 01:20:29.671553	2025-05-10 01:20:29.671553
+ec0fa529-5168-4c07-a4e5-6befc353a54c	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	1098000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 01:55:25.445569	2025-05-10 01:55:25.445569
+41a85f25-73f5-4d9a-9643-d9dcbb1f58dc	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	289000.00	rewrw	2025-05-10 02:01:55.091129	2025-05-10 02:01:55.091129
+0a18326a-71f5-4d85-a9d8-49c6f92697a5	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	260000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 02:02:53.663141	2025-05-10 02:02:53.663141
+bd255794-9e5c-4ff4-b29b-58521e6275e5	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	289000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 02:03:14.435724	2025-05-10 02:03:14.435724
+64e4fced-c670-4702-b454-d3c36d1f3d2e	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	359000.00	123 Đường ABC, Quận 1, TP.HCM	2025-05-10 02:03:29.396202	2025-05-10 02:03:29.396202
+61bc361a-1617-448c-a9c0-ad9c199a49b7	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	450000.00	ABCDE	2025-05-10 02:11:35.873078	2025-05-10 02:11:35.873078
+e53ce1d9-1dd2-4602-87cb-4609665c2fa6	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	260000.00	sdgfsdf	2025-05-10 02:24:58.673433	2025-05-10 02:24:58.673433
+d0be3a81-40d0-4a0a-bcb0-9e0a6d5dfb10	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	pending	299000.00	fsd	2025-05-11 03:33:12.626187	2025-05-11 03:33:12.626187
+65492bbc-9b52-411b-8fe2-0f8dbafbab73	7d2a0c93-de37-44ed-a84d-5c0c2ef9257c	processing	299000.00	dfbd	2025-05-11 03:38:39.976265	2025-05-11 03:39:12.642132
+\.
+
+
+--
+-- Name: order_items PK_005269d8574e6fac0493715c308; Type: CONSTRAINT; Schema: public; Owner: order_cart_admin
+--
+
+ALTER TABLE ONLY public.order_items
+    ADD CONSTRAINT "PK_005269d8574e6fac0493715c308" PRIMARY KEY (id);
+
+
+--
+-- Name: orders PK_710e2d4957aa5878dfe94e4ac2f; Type: CONSTRAINT; Schema: public; Owner: order_cart_admin
+--
+
+ALTER TABLE ONLY public.orders
+    ADD CONSTRAINT "PK_710e2d4957aa5878dfe94e4ac2f" PRIMARY KEY (id);
+
+
+--
+-- Name: IDX_151b79a83ba240b0cb31b2302d; Type: INDEX; Schema: public; Owner: order_cart_admin
+--
+
+CREATE INDEX "IDX_151b79a83ba240b0cb31b2302d" ON public.orders USING btree ("userId");
+
+
+--
+-- Name: order_items FK_f1d359a55923bb45b057fbdab0d; Type: FK CONSTRAINT; Schema: public; Owner: order_cart_admin
+--
+
+ALTER TABLE ONLY public.order_items
+    ADD CONSTRAINT "FK_f1d359a55923bb45b057fbdab0d" FOREIGN KEY ("orderId") REFERENCES public.orders(id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
