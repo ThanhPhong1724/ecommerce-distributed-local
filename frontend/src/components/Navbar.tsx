@@ -7,8 +7,8 @@ import { FiSearch, FiShoppingCart, FiUser, FiMenu, FiX, FiPackage, FiHeart, FiIn
 
 const Logo = () => (
   <Link to="/" className="relative group">
-    <span className="text-2xl font-bold transition-all duration-300 bg-gradient-to-r group-hover:from-brand-primary group-hover:to-brand-secondary bg-clip-text text-transparent">
-      YourBrand
+    <span className="text-2xl font-bold transition-all duration-300 bg-gradient-to-r group-hover:from-brand-primary group-hover:to-brand-secondary bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+      SHOP
     </span>
     <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-brand-primary to-brand-secondary group-hover:w-full transition-all duration-300" />
   </Link>

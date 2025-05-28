@@ -1,10 +1,12 @@
 // src/users/users.service.ts
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { User } from './users/entities/user.entity';
 import { CreateUserDto } from './users/dto/create-user.dto';
 import { UserPayload } from './users/interfaces/user-payload.interface';
+import { startOfDay, endOfDay } from 'date-fns';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -64,5 +66,14 @@ export class UsersService {
         return result as UserPayload;
     });
   }
-
+  // --- THỐNG KÊ CHO ADMIN ---
+  async getNewUsersTodayCount(): Promise<{ newUsersToday: number }> {
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    const count = await this.userRepository.count({
+      where: { createdAt: Between(todayStart, todayEnd) },
+    });
+    return { newUsersToday: count };
+  }
+  // --- KẾT THÚC THỐNG KÊ CHO ADMIN ---
 }

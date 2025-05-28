@@ -1,6 +1,6 @@
 // src/services/orderApi.ts
 import apiClient from './apiClient';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios'; // Import AxiosError
 
 // Interface cho dữ liệu gửi đi khi tạo order
 interface CreateOrderPayload {
@@ -12,6 +12,39 @@ interface CreateOrderPayload {
   }>;
 }
 
+export enum OrderStatusApi { // Đặt tên khác để tránh trùng với OrderStatus của backend nếu cần
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  FAILED = 'failed',
+}
+export interface OrderItemData {
+  id?: string; // ID của order item (nếu backend trả về)
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  imageUrl?: string | null; // Thêm nếu có
+}
+
+// Interface này nên khớp với dữ liệu mà backend API /orders/admin/all và /orders/admin/:id trả về
+export interface OrderData {
+  id: string;
+  userId: string;
+  status: OrderStatusApi; // Sử dụng enum
+  totalAmount: number;
+  items: OrderItemData[];
+  shippingAddress: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  user?: { // Thông tin user (nếu backend API admin có join và trả về)
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  // adminNotes?: string; // Nếu admin có thể thêm ghi chú
+}
 // Interface cho dữ liệu order trả về từ backend
 // Nên import từ file interface chung nếu có
 interface OrderResponse {
@@ -140,6 +173,93 @@ export const getOrders = async (): Promise<OrderListItem[]> => {
       if (error.response?.status === 401) {
         throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
       }
+    }
+    throw error;
+  }
+};
+
+// --- HÀM API CHO ADMIN ---
+export const getAllOrdersForAdmin = async (
+  // Thêm params cho phân trang, lọc sau này nếu cần
+  // params?: { page?: number; limit?: number; status?: OrderStatusApi; search?: string }
+): Promise<OrderData[]> => {
+  try {
+    const response = await apiClient.get<OrderData[]>('/orders/admin/all' /*, { params }*/);
+    return response.data;
+  } catch (error) {
+    console.error("Lỗi khi lấy tất cả đơn hàng cho admin:", error);
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<any>;
+      throw axiosError.response?.data || axiosError;
+    }
+    throw error;
+  }
+};
+
+/**
+ * Lấy chi tiết một đơn hàng cho Admin.
+ */
+export const getOrderByIdForAdmin = async (orderId: string): Promise<OrderData> => {
+    try {
+        const response = await apiClient.get<OrderData>(`/orders/admin/${orderId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Lỗi khi lấy chi tiết đơn hàng ${orderId} cho admin:`, error);
+        if (axios.isAxiosError(error)) {
+          const axiosError = error as AxiosError<any>;
+          throw axiosError.response?.data || axiosError;
+        }
+        throw error;
+    }
+};
+
+/**
+ * Interface cho payload khi Admin cập nhật chi tiết đơn hàng.
+ * Nên trùng với UpdateOrderAdminDto ở backend.
+ */
+export interface UpdateOrderAdminPayload {
+  shippingAddress?: string;
+  status?: OrderStatusApi;
+}
+
+/**
+ * Admin cập nhật chi tiết đơn hàng (địa chỉ, trạng thái...).
+ */
+export const updateOrderDetailsForAdmin = async (
+  orderId: string,
+  payload: UpdateOrderAdminPayload
+): Promise<OrderData> => {
+  try {
+    const response = await apiClient.patch<OrderData>(`/orders/admin/${orderId}`, payload);
+    return response.data;
+  } catch (error) {
+    console.error(`Lỗi khi cập nhật đơn hàng ${orderId} cho admin:`, error);
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<any>;
+      throw axiosError.response?.data || axiosError;
+    }
+    throw error;
+  }
+};
+
+/**
+ * Admin hủy một đơn hàng (thực chất là cập nhật trạng thái thành CANCELLED).
+ * Có thể dùng lại updateOrderDetailsForAdmin hoặc tạo hàm riêng cho rõ ràng.
+ */
+export const cancelOrderForAdmin = async (orderId: string): Promise<OrderData> => {
+  try {
+    // Gọi API PATCH /admin/:orderId/status hoặc PATCH /admin/:orderId với payload status
+    // Ví dụ dùng lại hàm updateOrderDetailsForAdmin:
+    return await updateOrderDetailsForAdmin(orderId, { status: OrderStatusApi.CANCELLED });
+
+    // Hoặc nếu backend có endpoint riêng cho cancel:
+    // const response = await apiClient.delete<OrderData>(`/orders/admin/${orderId}/cancel`); // Giả sử dùng DELETE
+    // return response.data;
+  } catch (error) {
+    console.error(`Lỗi khi hủy đơn hàng ${orderId} cho admin:`, error);
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<any>;
+      throw axiosError.response?.data || axiosError;
     }
     throw error;
   }

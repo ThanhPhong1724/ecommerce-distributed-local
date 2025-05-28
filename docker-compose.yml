@@ -141,6 +141,8 @@ services:
     ports:
       - "3002:3002"
     environment:
+      JWT_SECRET: ${JWT_SECRET} # <<< THÊM
+      JWT_EXPIRATION: ${JWT_EXPIRATION} # <<< THÊM
       DATABASE_HOST: postgres_db_user_product # <<< Trỏ đến DB mới
       DATABASE_PORT: 5432
       DATABASE_USER: ${DB_UP_USER:-user_product_admin}
@@ -196,7 +198,8 @@ services:
     ports:
       - "3004:3004"
     environment:
-      JWT_SECRET: ${JWT_SECRET}  # Đảm bảo biến này được set
+      JWT_SECRET: ${JWT_SECRET} # <<< THÊM
+      JWT_EXPIRATION: ${JWT_EXPIRATION} # <<< THÊM
       DATABASE_HOST: postgres_db_order_cart # <<< Trỏ đến DB mới
       DATABASE_PORT: 5432
       DATABASE_USER: ${DB_OC_USER:-order_cart_admin}

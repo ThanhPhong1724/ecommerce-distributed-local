@@ -3,6 +3,8 @@ import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './categories/dto/create-category.dto';
 import { UpdateCategoryDto } from './categories/dto/update-category.dto';
 import { Put, Request, HttpCode, HttpStatus, UseGuards } from '@nestjs/common'; // Thêm HttpCode, HttpStatus
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // <<< Đường dẫn ví dụ
+import { AdminGuard } from './auth/guards/admin.guard';   // <<< Đường dẫn ví dụ
 
 @UseInterceptors(ClassSerializerInterceptor) // Có thể dùng để loại bỏ field không mong muốn nếu dùng @Exclude trong entity
 @Controller('categories')
@@ -19,6 +21,7 @@ export class CategoriesController {
   // --- KẾT THÚC HEALTH CHECK ---
   
   @Post()
+  @UseGuards(JwtAuthGuard, AdminGuard) // <<< CHỈ ADMIN
   create(@Body(ValidationPipe) createCategoryDto: CreateCategoryDto) {
     return this.categoriesService.create(createCategoryDto);
   }
@@ -34,11 +37,13 @@ export class CategoriesController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, AdminGuard) // <<< CHỈ ADMIN
   update(@Param('id', ParseUUIDPipe) id: string, @Body(ValidationPipe) updateCategoryDto: UpdateCategoryDto) {
     return this.categoriesService.update(id, updateCategoryDto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, AdminGuard) // <<< CHỈ ADMIN
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.categoriesService.remove(id);
   }

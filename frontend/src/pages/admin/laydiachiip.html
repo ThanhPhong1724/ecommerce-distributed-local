@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lấy IP Tự Động</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+        #ip-info {
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .loading { color: orange; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Chào mừng!</h1>
+    <p>Đang cố gắng lấy địa chỉ IP của bạn...</p>
+    <div id="ip-info"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ipInfoElement = document.getElementById('ip-info');
+            ipInfoElement.textContent = 'Đang lấy IP...';
+            ipInfoElement.className = 'loading';
+
+            fetch('https://api.ipify.org?format=json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Không thể kết nối tới dịch vụ IP. Status: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const userIp = data.ip;
+                    ipInfoElement.textContent = `Địa chỉ IP của bạn là: ${userIp}`;
+                    ipInfoElement.className = ''; // Xóa class loading
+                    alert(`Địa chỉ IP của bạn là: ${userIp}`); // TEST ALERT
+
+                    // BƯỚC TIẾP THEO: Gửi IP này lên server của bạn để lưu vào DB
+                    // Ví dụ:
+                    // fetch('/api/log-ip', { // '/api/log-ip' là endpoint trên server của bạn
+                    //     method: 'POST',
+                    //     headers: {
+                    //         'Content-Type': 'application/json',
+                    //     },
+                    //     body: JSON.stringify({ ip: userIp })
+                    // })
+                    // .then(res => res.json())
+                    // .then(serverData => console.log('Server response:', serverData))
+                    // .catch(err => console.error('Lỗi khi gửi IP lên server:', err));
+
+                })
+                .catch(error => {
+                    console.error('Lỗi khi lấy IP:', error);
+                    ipInfoElement.textContent = 'Không thể lấy được địa chỉ IP. ' + error.message;
+                    ipInfoElement.className = 'error';
+                    alert('Lỗi: Không thể lấy được địa chỉ IP.');
+                });
+        });
+    </script>
+</body>
+</html>

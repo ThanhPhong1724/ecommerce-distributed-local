@@ -5,6 +5,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdersModule } from './orders/orders.module';
 import { Order } from './orders/entities/order.entity';         // Import
 import { OrderItem } from './orders/entities/order-item.entity'; // Import
+import { JwtStrategy } from './guards/jwt.strategy'; // <<< Import strategy của order-service
+import { HttpModule } from '@nestjs/axios';
+import { ClientsModule } from '@nestjs/microservices'; // Nếu dùng cho RabbitMQ
+import { AuthModule } from './auth/auth.module'; // <<< IMPORT AUTHMODULE
 
 @Module({
   imports: [
@@ -29,6 +33,8 @@ import { OrderItem } from './orders/entities/order-item.entity'; // Import
       }),
     }),
     OrdersModule, // Import OrdersModule
+    HttpModule, // Đảm bảo HttpModule được import nếu service có gọi API ngoài
+    AuthModule, // <<< THÊM AUTHMODULE VÀO IMPORTS
   ],
   controllers: [],
   providers: [],

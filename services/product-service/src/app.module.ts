@@ -8,6 +8,7 @@ import { ProductsModule } from './products/products.module';
 import { Category } from './categories/entities/category.entity'; // Import entity
 import { Product } from './products/entities/product.entity';     // Import entity
 import * as redisStore from 'cache-manager-redis-store'; // Import redis store
+import { AuthModule } from './auth/auth.module'; // <<< IMPORT AUTHMODULE MỚI TẠO
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import * as redisStore from 'cache-manager-redis-store'; // Import redis store
     }),
 
     // Import các feature modules
+    AuthModule,
     CategoriesModule,
     ProductsModule,
   ],

@@ -6,6 +6,10 @@ import { CreateProductDto } from './products/dto/create-product.dto';
 import { UpdateProductDto } from './products/dto/update-product.dto';
 import { UpdateStockDto } from './products/dto/update-stock.dto'; 
 import { Put, Request, HttpCode, HttpStatus, UseGuards } from '@nestjs/common'; // Thêm HttpCode, HttpStatus
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // <<< Đường dẫn ví dụ
+import { AdminGuard } from './auth/guards/admin.guard';   // <<< Đường dẫn ví dụ
+import { CategoryDistributionDto } from './products/dto/stats.dto'; // Import DTO
+
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('products')
 export class ProductsController {
@@ -41,6 +45,7 @@ export class ProductsController {
     };
   }
   // --- KẾT THÚC ENDPOINT TỒN KHO ---
+
   
   @Post()
   create(@Body(ValidationPipe) createProductDto: CreateProductDto) {
@@ -84,15 +89,26 @@ export class ProductsController {
     return this.productsService.findByCategory(categoryId);
   }
 
+  @UseGuards(JwtAuthGuard, AdminGuard) // <<< CHỈ ADMIN
   @Patch(':id')
   update(@Param('id', ParseUUIDPipe) id: string, @Body(ValidationPipe) updateProductDto: UpdateProductDto) {
     // Hàm update trong service đã có logic xóa cache
     return this.productsService.update(id, updateProductDto);
   }
 
+  @UseGuards(JwtAuthGuard, AdminGuard) // <<< CHỈ ADMIN
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     // Hàm remove trong service đã có logic xóa cache
     return this.productsService.remove(id);
   }
+    
+  // --- ADMIN STATS ENDPOINT (GỘP VÀO ĐÂY) ---
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/stats/category-distribution') // Route: /api/products/admin/stats/category-distribution
+  async getCategoryDistributionForAdmin(): Promise<CategoryDistributionDto[]> {
+    this.logger.log('API Admin: Get category distribution');
+    return this.productsService.getCategoryProductCount();
+  }
+  // --- KẾT THÚC ADMIN STATS ---
 }

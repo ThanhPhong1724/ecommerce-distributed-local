@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, Logger, BadRequestException, HttpException, InternalServerErrorException } from '@nestjs/common'; // Import thêm Inject
+import { Injectable, NotFoundException, Inject, Logger, BadRequestException, HttpException, InternalServerErrorException, UseGuards  } from '@nestjs/common'; // Import thêm Inject
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Import CACHE_MANAGER từ @nestjs/cache-manager
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm'; // Import InjectDataSource
 import { Repository, DataSource } from 'typeorm'; // Import DataSource
@@ -7,6 +7,9 @@ import { CreateProductDto } from './products/dto/create-product.dto';
 import { UpdateProductDto } from './products/dto/update-product.dto';
 import { CategoriesService } from './categories.service'; // Import để kiểm tra category tồn tại
 import { Cache } from 'cache-manager'; // Import kiểu Cache
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // <<< Đường dẫn ví dụ
+import { AdminGuard } from './auth/guards/admin.guard';   // <<< Đường dẫn ví dụ
+import { CategoryDistributionDto } from './products/dto/stats.dto'; // Import DTO
 
 @Injectable()
 export class ProductsService {
@@ -202,4 +205,23 @@ export class ProductsService {
         this.logger.log(`Cleared cache for category ${cat.id}`);
       }
   }
+  // --- THỐNG KÊ CHO ADMIN ---
+  async getCategoryProductCount(): Promise<CategoryDistributionDto[]> {
+    this.logger.log('[Stats] Lấy phân bố sản phẩm theo danh mục');
+    const result = await this.productRepository
+      .createQueryBuilder('product')
+      .innerJoin('product.category', 'category') // Join với category qua relation
+      .select('category.name', 'name')
+      .addSelect('COUNT(product.id)', 'value')
+      .groupBy('category.id') // Group theo category.id để đảm bảo chính xác
+      .addGroupBy('category.name') // Thêm category.name vào group by
+      .orderBy('value', 'DESC')
+      .getRawMany<{ name: string; value: string }>();
+
+    return result.map(item => ({
+        name: item.name,
+        value: parseInt(item.value, 10)
+    }));
+  }
+  // --- KẾT THÚC THỐNG KÊ CHO ADMIN ---
 }

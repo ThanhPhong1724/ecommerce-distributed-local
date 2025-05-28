@@ -1,11 +1,20 @@
 // src/orders/orders.controller.ts (Ví dụ sửa đổi)
-import { Controller, Get, Post, Body, Param, Request, ParseUUIDPipe, ValidationPipe, UseGuards, HttpCode, HttpStatus, UseInterceptors, ClassSerializerInterceptor, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Body, Param, Request, ParseUUIDPipe,
+  ValidationPipe, UseGuards, HttpCode, HttpStatus, UseInterceptors,
+  ClassSerializerInterceptor, UnauthorizedException, Logger, Query // <<< Thêm Query
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './orders/dto/create-order.dto';
 import { OrderDto } from './orders/dto/order.dto'; // Import OrderDto
 import { AuthGuard } from './guards/auth.guard'; // Import AuthGuard
 import { MessagePattern, Payload, Ctx, RmqContext } from '@nestjs/microservices'; // <<<< IMPORT CHO RABBITMQ LISTENER
-import { OrderStatus } from './orders/entities/order.entity'; // <<<< IMPORT OrderStatus
+import { Order, OrderStatus } from './orders/entities/order.entity'; // <<<< IMPORT OrderStatus
+import { JwtAuthGuard } from './guards/jwt-auth.guard'; // <<< Đường dẫn tới Guard
+import { AdminGuard } from './guards/admin.guard';   // <<< Đường dẫn tới Guard
+import { UpdateOrderAdminDto } from './orders/dto/update-order-admin.dto'; // <<< Tạo DTO này
+import { DailyOrderStatsDto, RevenueDataPointDto, DateRangeQueryDto  } from './orders/dto/stats.dto'; // Import DTOs
+import { startOfDay, endOfDay, subDays, format, parseISO, isValid } from 'date-fns'; // Thư viện date-fns
 
 // Định nghĩa kiểu dữ liệu cho payload của sự kiện payment_processed
 interface PaymentProcessedPayload {
@@ -77,18 +86,68 @@ export class OrdersController {
 
   @Get()
   @UseGuards(AuthGuard) 
-  async findAll(@Request() req): Promise<OrderDto[]> { // <<< Sửa kiểu trả về
+  async findAll(@Request() req): Promise<Order[]> { // <<< Sửa kiểu trả về
     const userId = this.getUserIdFromRequest(req);
     return this.ordersService.findAllForUser(userId);
   }
 
   @Get(':id')
   @UseGuards(AuthGuard) 
-  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string): Promise<OrderDto> { // <<< Sửa kiểu trả về
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string): Promise<Order> { // <<< Sửa kiểu trả về
     const userId = this.getUserIdFromRequest(req);
     return this.ordersService.findOne(id, userId);
   }
-  
+ 
+  // --- ENDPOINTS MỚI CHO ADMIN ---
+  @UseGuards(JwtAuthGuard, AdminGuard) 
+  @Get('admin/all') // Route ví dụ: /api/orders/admin/all
+  async findAllForAdmin(
+    // Thêm các Query param để phân trang, lọc, tìm kiếm sau này
+    // @Query('page') page: number = 1,
+    // @Query('limit') limit: number = 10,
+    // @Query('status') status?: OrderStatus,
+    // @Query('search') search?: string,
+  ): Promise<Order[]> { // Hoặc một kiểu PagedResponse<Order>
+    this.logger.log('Admin request to get all orders');
+    return this.ordersService.findAllAdmin(); // <<< Sẽ tạo hàm này trong service
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard) 
+  @Get('admin/:orderId') // Route ví dụ: /api/orders/admin/some-order-id
+  async findOneForAdmin(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+  ): Promise<Order> {
+    this.logger.log(`Admin request to get order details for ID: ${orderId}`);
+    return this.ordersService.findOneAdmin(orderId); // <<< Sẽ tạo hàm này trong service
+  }
+    // --- ENDPOINT ADMIN CẬP NHẬT CHI TIẾT ĐƠN HÀNG ---
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('admin/:orderId')
+  async updateOrderDetailsByAdmin( // <<< Tên hàm trong controller
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Body(ValidationPipe) updateDto: UpdateOrderAdminDto,
+  ): Promise<Order> {
+    this.logger.log(`Admin request to update details for order ID: ${orderId} with data: ${JSON.stringify(updateDto)}`);
+    return this.ordersService.updateOrderDetailsByAdmin(orderId, updateDto); // <<< Gọi hàm service tương ứng
+  }
+  // --- ADMIN STATS ENDPOINTS (GỘP VÀO ĐÂY) ---
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/stats/daily-summary') // Route: /api/orders/admin/stats/daily-summary
+  async getDailyOrderSummaryForAdmin(): Promise<DailyOrderStatsDto> {
+    this.logger.log('API Admin: Get daily order summary');
+    return this.ordersService.getDailyOrderSummary();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/stats/revenue-over-time') // Route: /api/orders/admin/stats/revenue-over-time
+  async getRevenueOverTimeForAdmin(
+    @Query(ValidationPipe) query: DateRangeQueryDto // Validate query params
+  ): Promise<RevenueDataPointDto[]> {
+    this.logger.log(`API Admin: Get revenue over time with query: ${JSON.stringify(query)}`);
+    return this.ordersService.getRevenueOverTime(query.startDate, query.endDate);
+  }
+  // --- KẾT THÚC ENDPOINTS ADMIN ---
+
   // --- MESSAGE HANDLER CHO RABBITMQ ---
   @MessagePattern('payment_processed') // <<<< LẮNG NGHE SỰ KIỆN 'payment_processed'
   async handlePaymentProcessed(
@@ -105,7 +164,9 @@ export class OrdersController {
 
     try {
       // Gọi service để cập nhật trạng thái đơn hàng
-      await this.ordersService.updateOrderStatus(data.orderId, data.status);
+      // await this.ordersService.updateOrderStatus(data.orderId, data.status);
+      await this.ordersService.updateOrderStatusAfterPayment(data.orderId, data.status);
+      
       this.logger.log(`[handlePaymentProcessed] Successfully updated status for Order ID: ${data.orderId} to ${data.status}`);
 
       // (Quan trọng) Acknowledge a message

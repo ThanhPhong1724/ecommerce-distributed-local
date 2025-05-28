@@ -52,5 +52,13 @@ export class UsersController {
     console.log('Admin request to get all users');
     return this.usersService.findAllForAdmin(); // <<< Sẽ tạo hàm này trong service
   }
+  // --- ADMIN STATS ENDPOINT (GỘP VÀO ĐÂY) ---
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/stats/today-new-count') // Route: /api/users/admin/stats/today-new-count
+  async getNewUsersTodayCountForAdmin(): Promise<{ newUsersToday: number }> {
+    // this.logger.log('API Admin: Get new users today count');
+    return this.usersService.getNewUsersTodayCount();
+  }
+  // --- KẾT THÚC ADMIN STATS ---
   // --- KẾT THÚC ENDPOINT ADMIN ---
 }

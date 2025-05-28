@@ -1,6 +1,5 @@
 // src/services/productApi.ts
 import apiClient from './apiClient';
-import { UserRole } from '../contexts/AuthContext'; // Giả sử UserRole export từ đây hoặc file chung
 
 // Định nghĩa kiểu dữ liệu Product (nên giống backend hoặc tạo interface chung)
 export interface Product {
@@ -60,4 +59,48 @@ export const getProductsByCategory = async (categoryId: string): Promise<Product
   }
 };
 
+// --- CÁC HÀM API CHO ADMIN ---
+export const getProductByIdForAdmin = async (id: string): Promise<AdminProductPayload> => {
+  try {
+    const response = await apiClient.get<any>(`/products/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    throw error;
+  }
+};
+
+// Kiểu dữ liệu cho payload tạo/update product (không bao gồm id, createdAt, updatedAt, category object)
+type ProductFormData = Omit<AdminProductPayload, 'id' | 'createdAt' | 'updatedAt' | 'category'>;
+
+export const createProductForAdmin = async (productData: ProductFormData): Promise<AdminProductPayload> => {
+  try {
+    const response = await apiClient.post<AdminProductPayload>('/products', productData); // Giả sử dùng lại POST /products
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching products by category:', error);
+    throw error;
+  }
+};
+
+
+export const updateProductForAdmin = async (productId: string, productData: ProductFormData): Promise<AdminProductPayload> => {
+  try {
+      // API này cần được bảo vệ bởi AdminGuard ở backend
+      const response = await apiClient.patch<AdminProductPayload>(`/products/${productId}`, productData); // Giả sử dùng lại PATCH /products/:id
+      return response.data;
+    } catch (error) {
+    console.error('Lỗi update sản phẩm:', error);
+    throw error;
+  }
+};
+
+export const deleteProductForAdmin = async (productId: string): Promise<void> => {
+  try {
+      await apiClient.delete(`/products/${productId}`); // Giả sử dùng lại DELETE /products/:id
+    } catch (error) {
+    console.error('Lỗi xóa sản phẩm:', error);
+    throw error;
+  }
+};
 // Thêm các hàm gọi API khác cho product (getById, create, update...) sau này

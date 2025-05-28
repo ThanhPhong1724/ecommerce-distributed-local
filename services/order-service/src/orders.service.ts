@@ -2,6 +2,7 @@
 import { Injectable, Inject, Logger, NotFoundException, InternalServerErrorException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { Between, MoreThanOrEqual, LessThanOrEqual, Raw } from 'typeorm'; // Thêm Raw
 import { HttpService } from '@nestjs/axios'; // Import HttpService
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices'; // Import ClientProxy for RabbitMQ
@@ -11,12 +12,16 @@ import { OrderItem } from './orders/entities/order-item.entity';
 import { CreateOrderDto } from './orders/dto/create-order.dto';
 import { Cart as CartInterface } from './orders/interfaces/cart.interface'; // Tạo interface này
 import { Product as ProductInterface } from './orders/interfaces/product.interface'; // Tạo interface này
+import { UpdateOrderAdminDto } from './orders/dto/update-order-admin.dto'; // <<< Tạo DTO này
+import { DailyOrderStatsDto, RevenueDataPointDto } from './orders/dto/stats.dto'; // Import DTOs
+import { startOfDay, endOfDay, subDays, format, parseISO, isValid } from 'date-fns'; // Thư viện date-fns
 
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
   private cartServiceUrl: string;
   private productServiceUrl: string;
+  private readonly notificationQueue: string;
 
   constructor(
     @InjectDataSource() private dataSource: DataSource, // Inject DataSource để dùng transaction
@@ -29,69 +34,81 @@ export class OrdersService {
     // Lấy URL của các service khác từ biến môi trường (sẽ thêm vào env và compose)
     this.cartServiceUrl = this.configService.get<string>('CART_SERVICE_URL')!;
     this.productServiceUrl = this.configService.get<string>('PRODUCT_SERVICE_URL')!;
-    if (!this.cartServiceUrl || !this.productServiceUrl) {
-      throw new Error('CART_SERVICE_URL hoặc PRODUCT_SERVICE_URL chưa được cấu hình!');
+    this.notificationQueue = this.configService.get<string>('RABBITMQ_NOTIFICATIONS_QUEUE', 'notifications.queue');
+    if (!this.cartServiceUrl || !this.productServiceUrl || !this.notificationQueue) {
+      this.logger.error('Một trong các URL service hoặc tên queue chưa được cấu hình!');
+      throw new Error('Thiếu cấu hình URL/Queue cho service phụ thuộc.');
     }
   }
 
   // Hàm helper để gọi API service khác
   private async callService<T>(url: string, config: any = {}): Promise<T> {
     const method = config.method?.toLowerCase() || 'get';
-    const { method: removedMethod, ...axiosConfig } = config;
-    // Log token một cách an toàn
-    const loggableHeaders = { ...axiosConfig.headers };
+    // Chỉ lấy ra data và headers từ config, các thuộc tính khác của AxiosRequestConfig sẽ được truyền riêng
+    const { method: removedMethod, data, headers, ...restOfAxiosConfig } = config;
+
+    const loggableHeaders = { ...headers };
     if (loggableHeaders.Authorization) {
       loggableHeaders.Authorization = `${loggableHeaders.Authorization.substring(0, 15)}...[REDACTED]`;
     }
-    this.logger.debug(`Calling [${method.toUpperCase()}] ${url}`, { data: axiosConfig.data, headers: loggableHeaders });
+    this.logger.debug(`Calling [${method.toUpperCase()}] ${url}`, { data, headers: loggableHeaders, params: restOfAxiosConfig.params });
+
 
     try {
       let responseObservable;
+      // Tạo object config chuẩn cho Axios, bao gồm headers và các params khác (nếu có)
+      const axiosRequestConfig = { headers, ...restOfAxiosConfig };
+
       switch (method) {
         case 'post':
-          responseObservable = this.httpService.post<T>(url, axiosConfig.data, axiosConfig);
+          responseObservable = this.httpService.post<T>(url, data, axiosRequestConfig);
           break;
         case 'put':
-          responseObservable = this.httpService.put<T>(url, axiosConfig.data, axiosConfig);
+          responseObservable = this.httpService.put<T>(url, data, axiosRequestConfig);
           break;
-        case 'patch': // <<< THÊM CASE CHO PATCH
-          responseObservable = this.httpService.patch<T>(url, axiosConfig.data, axiosConfig);
+        case 'patch': // <<< Đã có case cho PATCH
+          responseObservable = this.httpService.patch<T>(url, data, axiosRequestConfig); // <<< Truyền data và config riêng
           break;
         case 'delete':
-          responseObservable = this.httpService.delete<T>(url, axiosConfig);
+          responseObservable = this.httpService.delete<T>(url, axiosRequestConfig); // Delete không có body data
           break;
         default: // 'get'
-          responseObservable = this.httpService.get<T>(url, axiosConfig);
+          responseObservable = this.httpService.get<T>(url, axiosRequestConfig); // Get không có body data
           break;
       }
 
-      const response = await firstValueFrom<AxiosResponse<T>>(
+      // <<< SỬA CÁCH LẤY firstValueFrom VÀ TRẢ VỀ response.data >>>
+      const response: AxiosResponse<T> = await firstValueFrom( // Ép kiểu response thành AxiosResponse<T>
         responseObservable.pipe(
           catchError((error) => {
             const status = error.response?.status;
             const responseData = error.response?.data;
-            const message = responseData?.message || error.message;
+            // Message có thể là một mảng (ví dụ từ class-validator), nên join lại nếu là mảng
+            let messageDetail = responseData?.message || error.message;
+            if (Array.isArray(messageDetail)) {
+                messageDetail = messageDetail.join(', ');
+            }
 
             this.logger.error(
-              `Lỗi khi gọi [${method.toUpperCase()}] ${url}: Status ${status}, Message: ${message}`,
-              responseData || error.stack // Log thêm chi tiết lỗi nếu có
+              `Lỗi khi gọi [${method.toUpperCase()}] ${url}: Status ${status}, Message: ${messageDetail}`,
+              responseData || error.stack
             );
 
             throw new HttpException(
-              { message: message || 'Lỗi giao tiếp với service khác', error: responseData?.error || 'Service Error', statusCode: status || HttpStatus.INTERNAL_SERVER_ERROR },
+              { message: messageDetail || 'Lỗi giao tiếp với service khác', error: responseData?.error || 'Service Error', statusCode: status || HttpStatus.INTERNAL_SERVER_ERROR },
               status || HttpStatus.INTERNAL_SERVER_ERROR,
               { cause: error }
             );
           }),
         ),
       );
-      return response.data as T;
+      return response.data; // <<< Trả về response.data
+
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error(`Lỗi không xác định khi gọi ${url}: ${error.message}`, error.stack);
       throw new InternalServerErrorException(`Lỗi không xác định khi gọi service: ${error.message}`);
     }
-
   }
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto, userToken: string): Promise<Order> {
@@ -364,7 +381,260 @@ export class OrdersService {
     }
   }
 
-}
+  // --- HÀM MỚI CHO ADMIN ---
+  async findAllAdmin(
+    // page: number = 1, limit: number = 10, status?: OrderStatus, search?: string
+  ): Promise<Order[]> {
+    this.logger.log(`Admin: Fetching all orders`);
+    // Hiện tại lấy tất cả, sau này có thể thêm logic phân trang, lọc, tìm kiếm
+    return this.orderRepository.find({
+      relations: { items: true, /* user: true (nếu muốn lấy thông tin user) */ },
+      order: { createdAt: 'DESC' },
+      // Thêm skip, take cho phân trang sau này
+    });
+  }
+
+  async findOneAdmin(orderId: string): Promise<Order> {
+    this.logger.log(`Admin: Fetching order details for ID: ${orderId}`);
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: { items: true, /* user: true */ },
+    });
+    if (!order) {
+      throw new NotFoundException(`Đơn hàng với ID ${orderId} không tìm thấy.`);
+    }
+    return order;
+  }
+
+  async updateOrderDetailsByAdmin(orderId: string, updateDto: UpdateOrderAdminDto): Promise<Order> {
+    this.logger.log(`Admin: Cập nhật chi tiết cho đơn hàng ${orderId} với dữ liệu: ${JSON.stringify(updateDto)}`);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('REPEATABLE READ');
+
+    let updatedOrderEntity: Order;
+
+    try {
+      const order = await queryRunner.manager.findOne(Order, {
+        where: { id: orderId },
+        relations: ['items'],
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Đơn hàng với ID ${orderId} không tìm thấy.`);
+      }
+
+      const oldStatus = order.status;
+      let statusActuallyChanged = false;
+
+      if (updateDto.shippingAddress !== undefined) {
+        if (order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) {
+            this.logger.warn(`Admin: Không thể cập nhật địa chỉ cho đơn hàng ${orderId} đang ở trạng thái ${order.status}.`);
+        } else {
+            order.shippingAddress = updateDto.shippingAddress;
+            this.logger.log(`Admin: Địa chỉ giao hàng của đơn ${orderId} được cập nhật.`);
+        }
+      }
+
+      if (updateDto.status !== undefined && updateDto.status !== oldStatus) {
+        if ((oldStatus === OrderStatus.COMPLETED || oldStatus === OrderStatus.CANCELLED) && updateDto.status !== oldStatus) {
+            throw new BadRequestException(`Đơn hàng ${orderId} đang ở trạng thái ${oldStatus} và không thể chuyển sang ${updateDto.status}.`);
+        }
+        order.status = updateDto.status;
+        statusActuallyChanged = true;
+        this.logger.log(`Admin: Trạng thái đơn hàng ${orderId} được cập nhật từ ${oldStatus} sang ${order.status}.`);
+      }
+
+      // if (updateDto.adminNotes !== undefined) order.adminNotes = updateDto.adminNotes;
+
+      updatedOrderEntity = await queryRunner.manager.save(order);
+
+      if (statusActuallyChanged && updatedOrderEntity.status === OrderStatus.CANCELLED && oldStatus !== OrderStatus.CANCELLED && updatedOrderEntity.items?.length > 0) {
+        this.logger.log(`Admin: Đơn hàng ${orderId} được hủy. Hoàn lại tồn kho...`);
+        const productStockRestores = updatedOrderEntity.items.map(item => ({
+            productId: item.productId,
+            quantityChange: item.quantity,
+        }));
+        const restoreStockPromises = productStockRestores.map(update =>
+            this.callService<any>(`${this.productServiceUrl}/products/${update.productId}/stock`, {
+                method: 'PATCH', data: { change: update.quantityChange }
+                // headers: { Authorization: `Bearer ADMIN_TOKEN_IF_NEEDED` }
+            }).catch(err => {
+                this.logger.error(`Admin: Lỗi hoàn tồn kho SP ${update.productId} cho đơn ${orderId}: ${err.message}`);
+                throw new InternalServerErrorException(`Không thể hoàn tồn kho cho SP ${update.productId}.`);
+            })
+        );
+        await Promise.all(restoreStockPromises);
+        this.logger.log(`Admin: Hoàn tồn kho thành công cho đơn hàng ${orderId}.`);
+      }
+
+      await queryRunner.commitTransaction();
+      this.logger.log(`Admin: Transaction commited. Order ${orderId} đã được cập nhật.`);
+
+      if (statusActuallyChanged) {
+        const eventPayload = { /* ... payload đầy đủ ... */
+            orderId: updatedOrderEntity.id, userId: updatedOrderEntity.userId, newStatus: updatedOrderEntity.status,
+            oldStatus: oldStatus, totalAmount: Number(updatedOrderEntity.totalAmount),
+            items: updatedOrderEntity.items?.map(i => ({ productId: i.productId, quantity: i.quantity, price: Number(i.price), name: i.productName })) || [],
+            shippingAddress: updatedOrderEntity.shippingAddress, updatedAt: updatedOrderEntity.updatedAt,
+        };
+        const eventType = `order.status.${updatedOrderEntity.status.toLowerCase()}`;
+        try {
+          this.rabbitClient.emit<string, any>(this.notificationQueue, { eventType, ...eventPayload });
+          this.logger.log(`Admin: Published event '${eventType}' đến queue '${this.notificationQueue}' cho Order ID: ${updatedOrderEntity.id}`);
+        } catch (rabbitError) {
+           this.logger.error(`Admin: Lỗi publish event cập nhật trạng thái cho order ${updatedOrderEntity.id}: ${rabbitError.message}`);
+        }
+      }
+      return updatedOrderEntity;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Admin: Lỗi trong transaction cập nhật đơn hàng ${orderId}: ${error.message}`, error.stack);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException('Lỗi hệ thống khi cập nhật đơn hàng.');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // --- HÀM XỬ LÝ SỰ KIỆN THANH TOÁN (ĐƯỢC GỌI TỪ MESSAGE PATTERN) ---
+  async updateOrderStatusAfterPayment(orderId: string, paymentResultStatus: OrderStatus): Promise<Order> {
+    this.logger.log(`[EventListener] Cập nhật đơn hàng ${orderId} thành trạng thái ${paymentResultStatus} do sự kiện thanh toán.`);
+
+    const queryRunner = this.dataSource.createQueryRunner(); // Sử dụng transaction riêng cho việc này
+    await queryRunner.connect();
+    await queryRunner.startTransaction('REPEATABLE READ');
+
+    let orderToNotify: Order;
+
+    try {
+      const order = await queryRunner.manager.findOne(Order, {
+        where: { id: orderId },
+        relations: ['items'] // Cần items để gửi payload cho notification
+      });
+
+      if (!order) {
+        this.logger.error(`[EventListener] Đơn hàng ${orderId} không tìm thấy để cập nhật trạng thái.`);
+        throw new NotFoundException(`Đơn hàng với ID ${orderId} không tìm thấy.`);
+      }
+
+      // Chỉ cập nhật nếu đơn hàng đang ở trạng thái PENDING
+      if (order.status !== OrderStatus.PENDING) {
+        this.logger.warn(`[EventListener] Đơn hàng ${orderId} không ở trạng thái PENDING (hiện tại: ${order.status}). Bỏ qua cập nhật từ sự kiện thanh toán.`);
+        await queryRunner.rollbackTransaction(); // Không có gì thay đổi
+        return order; // Trả về đơn hàng hiện tại
+      }
+
+      order.status = paymentResultStatus; // Cập nhật trạng thái từ sự kiện (PROCESSING hoặc FAILED)
+      // Có thể thêm các trường khác liên quan đến thanh toán vào order nếu cần
+
+      orderToNotify = await queryRunner.manager.save(order);
+      await queryRunner.commitTransaction();
+      this.logger.log(`[EventListener] Đã cập nhật trạng thái đơn hàng ${orderId} thành ${orderToNotify.status}. Transaction commited.`);
+
+      // --- Publish sự kiện cho Notification Service ---
+      const eventPayload = {
+        orderId: orderToNotify.id,
+        userId: orderToNotify.userId,
+        newStatus: orderToNotify.status, // Trạng thái mới (PROCESSING hoặc FAILED)
+        totalAmount: Number(orderToNotify.totalAmount),
+        items: orderToNotify.items?.map(i => ({
+            productId: i.productId, quantity: i.quantity, price: Number(i.price), name: i.productName
+        })) || [],
+        shippingAddress: orderToNotify.shippingAddress,
+        createdAt: orderToNotify.createdAt, // Gửi cả ngày tạo đơn
+        paymentStatus: paymentResultStatus === OrderStatus.PROCESSING ? 'SUCCESS' : 'FAILURE', // Để email rõ ràng hơn
+      };
+      // Dùng eventType để notification service biết đây là sự kiện gì
+      const eventType = paymentResultStatus === OrderStatus.PROCESSING ? 'payment.successful.processed' : 'payment.failed.processed';
+
+      try {
+        this.rabbitClient.emit<string, any>(this.notificationQueue, { eventType, ...eventPayload });
+        this.logger.log(`[EventListener] Published event '${eventType}' đến queue '${this.notificationQueue}' cho Order ID: ${orderToNotify.id}`);
+      } catch (rabbitError) {
+         this.logger.error(`[EventListener] Lỗi publish event sau thanh toán cho order ${orderToNotify.id}: ${rabbitError.message}`);
+      }
+      // ----------------------------------------------
+
+      return orderToNotify;
+
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`[EventListener] Lỗi khi cập nhật trạng thái đơn hàng ${orderId} từ sự kiện thanh toán: ${error.message}`, error.stack);
+      throw error; // Ném lỗi để controller có thể nack message
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // --- THỐNG KÊ CHO ADMIN ---
+  async getDailyOrderSummary(): Promise<DailyOrderStatsDto> {
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    this.logger.log(`[Stats] Lấy thống kê đơn hàng ngày: ${todayStart.toISOString()} - ${todayEnd.toISOString()}`);
+
+    const revenueResult = await this.orderRepository
+      .createQueryBuilder('order')
+      .select('SUM(order.totalAmount)', 'totalRevenue')
+      .where('order.status = :status', { status: OrderStatus.COMPLETED })
+      .andWhere('order.createdAt BETWEEN :start AND :end', { start: todayStart, end: todayEnd })
+      .getRawOne<{ totalRevenue: string | null }>();
+
+    const newOrdersToday = await this.orderRepository.count({
+      where: { createdAt: Between(todayStart, todayEnd) },
+    });
+
+    // Tính tổng sản phẩm bán ra từ bảng order_items cho các đơn hàng đã hoàn thành hôm nay
+    const productsSoldResult = await this.orderRepository.createQueryBuilder("order")
+        .innerJoin("order.items", "item") // Join với order_items
+        .select("SUM(item.quantity)", "totalQuantitySold")
+        .where("order.status = :status", { status: OrderStatus.COMPLETED })
+        .andWhere("order.createdAt BETWEEN :start AND :end", { start: todayStart, end: todayEnd })
+        .getRawOne<{ totalQuantitySold: string | null }>();
+
+
+    return {
+      todayRevenue: parseFloat(revenueResult?.totalRevenue || '0'),
+      newOrdersToday,
+      productsSoldToday: parseInt(productsSoldResult?.totalQuantitySold || '0', 10),
+    };
+  }
+
+  async getRevenueOverTime(startDateInput?: string, endDateInput?: string): Promise<RevenueDataPointDto[]> {
+    // Mặc định 7 ngày qua nếu không có startDate, endDate
+    const defaultEndDate = endOfDay(new Date());
+    const defaultStartDate = startOfDay(subDays(defaultEndDate, 6));
+
+    const endDate = endDateInput && isValid(parseISO(endDateInput)) ? endOfDay(parseISO(endDateInput)) : defaultEndDate;
+    const startDate = startDateInput && isValid(parseISO(startDateInput)) ? startOfDay(parseISO(startDateInput)) : defaultStartDate;
+
+    if (startDate > endDate) {
+        throw new BadRequestException('Ngày bắt đầu không được lớn hơn ngày kết thúc.');
+    }
+
+    this.logger.log(`[Stats] Lấy doanh thu từ ${startDate.toISOString()} đến ${endDate.toISOString()}`);
+
+    // Sử dụng Raw để group theo ngày một cách chính xác hơn với múi giờ
+    // Lưu ý: Cú pháp DATE() có thể khác nhau giữa các DB. Đây là cho PostgreSQL.
+    const revenueData = await this.orderRepository
+      .createQueryBuilder('order')
+      .select("DATE(order.createdAt AT TIME ZONE 'UTC')", "dateOnly") // Expression 1
+      .addSelect('SUM(order.totalAmount)', 'dailyRevenue')
+      .where('order.status = :status', { status: OrderStatus.COMPLETED })
+      .andWhere('order.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .groupBy("DATE(order.createdAt AT TIME ZONE 'UTC')") // SỬA Ở ĐÂY: Dùng lại biểu thức
+      .orderBy("DATE(order.createdAt AT TIME ZONE 'UTC')", "ASC") // SỬA Ở ĐÂY: Dùng lại biểu thức (hoặc có thể dùng "dateOnly" nếu chỉ ORDER BY)
+      .getRawMany<{ dateOnly: string; dailyRevenue: string }>();
+
+    return revenueData.map(item => ({
+      date: item.dateOnly, // Đã là YYYY-MM-DD
+      name: format(parseISO(item.dateOnly), 'dd/MM'), // Format tên ngày dd/MM
+      revenue: parseFloat(item.dailyRevenue),
+    }));
+  }
+  // --- KẾT THÚC THỐNG KÊ CHO ADMIN ---
+};
 
 // Tạo thêm 2 file interface để định nghĩa kiểu dữ liệu trả về từ service khác
 // src/interfaces/cart.interface.ts

@@ -50,7 +50,8 @@
 
 // src/App.tsx
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom'; // <<< Thêm Outlet
+import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
 
 // Layouts
 import Navbar from './components/Navbar';
@@ -81,6 +82,11 @@ import TermsPage from './pages/TermsPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUserListPage from './pages/admin/AdminUserListPage';
 import AdminProductListPage from './pages/admin/AdminProductListPage';
+import AdminProductFormPage from './pages/admin/AdminProductFormPage'; 
+import AdminCategoryListPage from './pages/admin/AdminCategoryListPage';
+import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage';
+import AdminOrderListPage from './pages/admin/AdminOrderListPage';
+import AdminOrderDetailPage from './pages/admin/AdminOrderDetailPage';
 // ... (các import trang admin khác)
 
 const NotFoundPage = () => <h1>404 Not Found</h1>;
@@ -138,6 +144,13 @@ const App: React.FC = () => {
           <Route path="products" element={<AdminProductListPage />} /> {/* /admin/products */}
           {/* <Route path="orders" element={<AdminOrderListPage />} /> */}
           {/* <Route path="categories" element={<AdminCategoryListPage />} /> */}
+          <Route path="products/new" element={<AdminProductFormPage />} /> {/* Thêm sản phẩm mới */}
+          <Route path="products/edit/:productId" element={<AdminProductFormPage />} /> {/* Sửa sản phẩm */}
+          <Route path="categories" element={<AdminCategoryListPage />} />
+          <Route path="categories/new" element={<AdminCategoryFormPage />} />
+          <Route path="categories/edit/:categoryId" element={<AdminCategoryFormPage />} />
+          <Route path="orders" element={<AdminOrderListPage />} />
+          <Route path="orders/:orderId" element={<AdminOrderDetailPage />} />
           <Route path="*" element={<NotFoundPage />} /> {/* 404 cho các route /admin/không_khớp */}
         </Route>
 
