@@ -365,6 +365,7 @@ const AdminOrderDetailPage: React.FC = () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setIsEditingStatus(true)}
                   className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center"
+                  data-testid="edit-order-status-button" // data-testid cho nút "Thay đổi"
                 >
                   <FiEdit3 className="w-4 h-4 mr-1" />
                   Thay đổi
@@ -378,6 +379,7 @@ const AdminOrderDetailPage: React.FC = () => {
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value as OrderStatusApi)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  data-testid="order-status-select" // data-testid cho dropdown select
                 >
                   {Object.values(OrderStatusApi).map(s => (
                     <option key={s} value={s}>
@@ -392,6 +394,7 @@ const AdminOrderDetailPage: React.FC = () => {
                     onClick={() => handleUpdate('status')}
                     disabled={updateLoading || newStatus === order.status}
                     className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    data-testid="confirm-status-update-button" // data-testid cho nút "Cập nhật"
                   >
                     <FiSave className="w-4 h-4 mr-2" />
                     {updateLoading ? 'Đang lưu...' : 'Cập nhật'}
@@ -413,7 +416,7 @@ const AdminOrderDetailPage: React.FC = () => {
               <div className={`p-4 rounded-lg bg-gradient-to-r ${statusInfo.bgGradient} border-2 ${statusInfo.color}`}>
                 <div className="flex items-center space-x-3">
                   {statusInfo.icon}
-                  <span className="font-semibold">
+                  <span className="font-semibold" data-testid="current-order-status-text">
                     {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                   </span>
                 </div>

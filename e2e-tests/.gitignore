@@ -1,0 +1,85 @@
+# Dependencies
+/node_modules
+
+# Transpiled JavaScript from TypeScript
+# (Thư mục output của quá trình biên dịch TypeScript, nếu có)
+/dist
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test-specific files
+coverage/
+.jest-cache/
+
+# Screenshots and videos from test runs (nếu có)
+*.png
+*.jpeg
+*.jpg
+*.gif
+*.mp4
+*.webm
+# Hoặc một thư mục cụ thể nếu bạn lưu screenshot lỗi vào đó, ví dụ:
+# /test-results/screenshots/
+# /test-results/videos/
+
+# WebDriver executables (nếu bạn vô tình tải về và đặt trong project)
+# Thường thì package 'chromedriver' đã quản lý việc này trong node_modules
+chromedriver
+chromedriver.exe
+geckodriver
+geckodriver.exe
+msedgedriver
+msedgedriver.exe
+iedriver.exe
+safaridriver
+
+# Selenium server (nếu bạn dùng)
+selenium-server-standalone-*.jar
+
+# Environment variables file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Nhưng giữ lại file ví dụ
+!.env.example
+
+# Temporary Chrome profile directories (nếu bạn tạo trong project)
+# Nếu bạn tạo trong os.tmpdir() như trong code globalSetup, dòng này có thể không cần thiết
+# vì os.tmpdir() thường nằm ngoài project.
+# Nhưng nếu bạn thay đổi đường dẫn profile tạm thời vào trong project, hãy thêm:
+# chrome_profile_e2e_*/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+
+# IDEs and editors
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-workspace
+*.sublime-project
+.idea/
+*.project
+*.iml
+*.swp
+*~
+*.bak
+*.tmp
+
+# Miscellaneous
+.nyc_output

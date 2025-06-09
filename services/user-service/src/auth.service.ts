@@ -15,7 +15,7 @@ export class AuthService {
   // Hàm này được LocalStrategy gọi để xác thực user
   async validateUser(email: string, pass: string): Promise<UserPayload | null> {
     // Nên gọi hàm lấy user đầy đủ thông tin bao gồm role
-    const user = await this.usersService.findOneByEmailWithRole(email); // Giả sử có hàm này
+    const user = await this.usersService.findOneByEmailWithRole(email); 
     if (user && (await user.validatePassword(pass))) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...result } = user;

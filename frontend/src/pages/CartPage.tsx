@@ -103,6 +103,7 @@ const CartPage: React.FC = () => {
                             onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
                             disabled={item.quantity <= 1 || isLoading}
                             className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-purple-600 disabled:text-gray-400"
+                            data-testid={`cart-decrease-quantity-button-${item.productId}`} 
                           >
                             <FiMinus className="w-4 h-4" />
                           </button>
@@ -112,12 +113,14 @@ const CartPage: React.FC = () => {
                             onChange={(e) => handleQuantityChange(item.productId, parseInt(e.target.value, 10) || 1)}
                             min="1"
                             className="w-12 text-center border-0 focus:ring-0"
+                            data-testid={`cart-quantity-input-${item.productId}`} 
                             disabled={isLoading}
                           />
                           <button
                             onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
                             disabled={isLoading}
                             className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-purple-600 disabled:text-gray-400"
+                            data-testid={`cart-increase-quantity-button-${item.productId}`} 
                           >
                             <FiPlus className="w-4 h-4" />
                           </button>
@@ -131,6 +134,7 @@ const CartPage: React.FC = () => {
                             onClick={() => handleRemoveItem(item.productId)}
                             disabled={isLoading}
                             className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                            data-testid={`remove-cart-item-button-${item.productId}`}
                           >
                             <FiTrash2 className="w-5 h-5" />
                           </button>

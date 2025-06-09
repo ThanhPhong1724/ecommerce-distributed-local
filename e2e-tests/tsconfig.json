@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es2019",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true, // Cân nhắc đặt false để xem có lỗi nào khác không
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": ["jest", "node"], // Giữ nguyên
+    "typeRoots": [ // <-- THỬ THÊM DÒNG NÀY
+      "./node_modules/@types",
+      "./src/types" // Đường dẫn đến thư mục chứa file .d.ts tùy chỉnh
+    ]
+  },
+  "include": ["src/**/*", "src/config/globalSetup.ts", "src/config/globalTeardown.ts"], // Đảm bảo globalSetup/Teardown cũng được include nếu chúng có code TS cần check
+  "exclude": ["node_modules"]
+}

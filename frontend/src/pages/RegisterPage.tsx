@@ -140,7 +140,7 @@ const RegisterPage: React.FC = () => {
                     id="password"
                     name="password"
                     type="password"
-                    autoComplete="new-password"
+                    autoComplete="off"
                     required
                     minLength={6}
                     value={password}

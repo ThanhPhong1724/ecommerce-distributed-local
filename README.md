@@ -161,6 +161,11 @@ Tên chủ thẻ:NGUYEN VAN A
 Ngày phát hành:07/15
 Mật khẩu OTP:123456
 
-docker-compose down
-docker-compose build payment_service # Build lại payment_service
-docker-compose up -d
+
+Chạy 
+ngrok http 3005
+docker-compose up --build --force-recreate payment_service
+
+na@gmail.com
+admin@gmail.com
+123456

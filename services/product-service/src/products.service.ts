@@ -40,7 +40,13 @@ export class ProductsService {
       select: ['id', 'name', 'description', 'price', 'stockQuantity', 'img', 'createdAt', 'updatedAt'], // Chỉ định các trường cần lấy
     });
   }
-
+  // async findAll2(): Promise<Product[]> {
+  //   console.log('Fetching products from DB...');
+  //   return this.productRepository.find({
+  //     relations: ['category'], // Lấy cả thông tin category
+  //     select: ['id', 'name', 'description', 'price', 'stockQuantity', 'img', 'createdAt', 'updatedAt'], // Chỉ định các trường cần lấy
+  //   });
+  // }
   async findOne(id: string): Promise<Product> {
     const cacheKey = `product_${id}`;
     const cachedProduct = await this.cacheManager.get<Product>(cacheKey);

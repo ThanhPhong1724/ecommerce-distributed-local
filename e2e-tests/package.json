@@ -1,0 +1,23 @@
+{
+  "name": "e2e-tests",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.30",
+    "@types/selenium-webdriver": "^4.1.28",
+    "chromedriver": "^137.0.1",
+    "fs-extra": "^11.3.0",
+    "jest": "^29.7.0",
+    "selenium-webdriver": "^4.33.0",
+    "ts-jest": "^29.3.4",
+    "typescript": "^5.8.3"
+  }
+}

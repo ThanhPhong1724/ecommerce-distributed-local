@@ -97,6 +97,7 @@ const AdminLayout: React.FC = () => {
                 }}
                 className="flex items-center w-full px-4 py-2 space-x-3 rounded-lg
                   text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors duration-200"
+                  data-testid="admin-logout-button"
               >
                 <LogoutIcon className="h-5 w-5" />
                 <span className="font-medium text-sm">Đăng xuất</span>

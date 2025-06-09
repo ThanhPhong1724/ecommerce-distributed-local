@@ -149,6 +149,7 @@ const ProductDetailPage: React.FC = () => {
                         onClick={() => setQuantity(q => Math.max(1, q - 1))}
                         disabled={quantity <= 1}
                         className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-purple-600 disabled:text-gray-400"
+                        data-testid="pdp-decrease-quantity-button" // <-- THÊM DATA-TESTID
                       >
                         <FiMinus />
                       </motion.button>
@@ -159,12 +160,14 @@ const ProductDetailPage: React.FC = () => {
                         min="1"
                         max={product.stockQuantity}
                         className="w-16 text-center border-0 focus:ring-0"
+                        data-testid={`pdp-quantity-input`} // DATA-TESTID ĐỘNG
                       />
                       <motion.button
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setQuantity(q => Math.min(product.stockQuantity, q + 1))}
                         disabled={quantity >= product.stockQuantity}
                         className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-purple-600 disabled:text-gray-400"
+                        data-testid="pdp-increase-quantity-button" // <-- THÊM DATA-TESTID
                       >
                         <FiPlus />
                       </motion.button>

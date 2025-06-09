@@ -403,6 +403,7 @@ const AdminOrderListPage: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                     className="hover:bg-gray-50"
+                    data-testid={`order-row-${order.id}`} 
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -457,6 +458,7 @@ const AdminOrderListPage: React.FC = () => {
                       <Link
                         to={`/admin/orders/${order.id}`}
                         className="inline-flex items-center text-indigo-600 hover:text-indigo-900"
+                        data-testid={`view-order-details-${order.id}`}
                       >
                         <FiEye className="w-4 h-4 mr-1" />
                         Xem chi tiết

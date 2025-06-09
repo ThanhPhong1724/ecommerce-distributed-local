@@ -159,6 +159,8 @@ const AdminProductListPage: React.FC = () => {
                 {filteredProducts.map((product) => (
                   <motion.tr
                     key={product.id}
+                    data-testid={`product-row-${product.id}`}
+                    data-full-product-id={product.id} // << THÊM THUỘC TÍNH NÀY
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="hover:bg-gray-50"
@@ -201,12 +203,14 @@ const AdminProductListPage: React.FC = () => {
                         <Link
                           to={`/admin/products/edit/${product.id}`}
                           className="text-indigo-600 hover:text-indigo-900"
+                          data-testid={`edit-product-button-${product.id}`} 
                         >
                           <FiEdit2 className="w-4 h-4" />
                         </Link>
                         <button
                           onClick={() => handleDeleteProduct(product.id)}
                           className="text-red-600 hover:text-red-900"
+                          data-testid={`delete-product-button-${product.id}`} // data-testid cho nút Xóa
                         >
                           <FiTrash2 className="w-4 h-4" />
                         </button>

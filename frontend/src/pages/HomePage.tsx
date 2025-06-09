@@ -397,7 +397,7 @@ const HomePage: React.FC = () => {
         <div className="text-center mt-12">
           <Link
             to="/products"
-            className="inline-flex items-center px-8 py-3 bg-brand-primary text-white rounded-full font-semibold hover:bg-brand-secondary transition-all duration-300 group"
+            className="inline-flex items-center px-8 py-3 bg-brand-primary text-black rounded-full font-semibold hover:bg-brand-secondary transition-all duration-300 group"
           >
             Xem Tất Cả Sản Phẩm
             <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
